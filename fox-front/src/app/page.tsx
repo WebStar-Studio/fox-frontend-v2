@@ -1,0 +1,293 @@
+"use client";
+
+import { Topbar } from "@/components/Topbar";
+import { DashboardCard } from "@/components/DashboardCard";
+import { BarChartDrivers } from "@/components/BarChartDrivers";
+import { DonutDeliveryStatus } from "@/components/DonutDeliveryStatus";
+import { UploadDialog } from "@/components/UploadDialog";
+import { useDashboardData, useRefreshData } from "@/hooks/useApiData";
+import { apiService } from "@/lib/api";
+import { 
+  Package, 
+  TrendingUp, 
+  Clock, 
+  DollarSign, 
+  Users, 
+  MapPin,
+  AlertCircle,
+  Loader2,
+  Upload,
+  FileSpreadsheet,
+  RefreshCw
+} from "lucide-react";
+
+export default function Dashboard() {
+  const { 
+    metricas, 
+    dados, 
+    driverStats, 
+    statusDistribution, 
+    statusBanco, 
+    isLoading, 
+    error,
+    isDatabaseEmpty,
+    refetch 
+  } = useDashboardData();
+  
+  const refreshData = useRefreshData();
+
+  const handleRefresh = () => {
+    console.log("Refreshing dashboard...");
+    refreshData();
+    refetch();
+  };
+
+  const handleImportData = () => {
+    // Implementar lógica de import
+    console.log("Importing data...");
+  };
+
+  // Renderizar loading state
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <Topbar 
+          title="Dashboard" 
+          onRefresh={handleRefresh}
+          onImportData={handleImportData}
+        />
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center space-x-2">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span>Carregando dados...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar error state - apenas se houver erro real de conexão
+  if (error && !isDatabaseEmpty) {
+    return (
+      <div className="p-8">
+        <Topbar 
+          title="Dashboard" 
+          onRefresh={handleRefresh}
+          onImportData={handleImportData}
+        />
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center space-x-2 text-red-600">
+            <AlertCircle className="w-6 h-6" />
+            <span>Erro ao carregar dados: {(error as Error)?.message || 'Erro desconhecido'}</span>
+            <button 
+              onClick={handleRefresh}
+              className="ml-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar estado de banco vazio (após clear) - usando a nova lógica estável
+  if (isDatabaseEmpty) {
+    console.log('🔍 Debug: Renderizando estado de banco vazio', {
+      isDatabaseEmpty,
+      statusBanco,
+      error,
+      isLoading
+    });
+    
+    return (
+      <div className="p-8">
+        <Topbar 
+          title="Dashboard" 
+          onRefresh={handleRefresh}
+          onImportData={handleImportData}
+        />
+
+        {/* Status do banco - mostrando que está conectado mas vazio */}
+        {statusBanco && (
+          <div className="mb-6 p-3 rounded-lg bg-blue-50 border border-blue-200">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center">
+                <div className="w-2 h-2 rounded-full mr-2 bg-green-500"></div>
+                Connected to database
+              </span>
+              <span className="text-gray-600">
+                {statusBanco.total_registros_banco || 0} records in database
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Mensagem de upload personalizada */}
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+          <div className="mb-6">
+            <FileSpreadsheet className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-2xl font-semibold text-[#001B38] mb-2">
+              No Data Available
+            </h3>
+            <p className="text-lg text-gray-600 mb-6 max-w-md">
+              Upload a spreadsheet to view data and analytics in your dashboard
+            </p>
+          </div>
+
+          {/* Call to action */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-center space-x-4">
+              <UploadDialog>
+                <button className="flex items-center space-x-3 px-6 py-3 bg-[#001B38] text-white rounded-lg text-base font-medium hover:bg-[#002855] transition-colors shadow-md">
+                  <Upload className="w-5 h-5" />
+                  <span>Upload Spreadsheet</span>
+                </button>
+              </UploadDialog>
+
+              <button
+                onClick={handleRefresh}
+                className="flex items-center space-x-2 px-4 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {/* Informações úteis */}
+            <div className="mt-8 p-4 bg-gray-50 rounded-lg max-w-md text-sm text-gray-600">
+              <div className="font-medium mb-2">📋 Supported formats:</div>
+              <div className="space-y-1">
+                <div>• Excel files (.xlsx, .xls)</div>
+                <div>• CSV files (.csv)</div>
+                <div>• Must contain delivery data columns</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Extrair métricas principais do banco de dados
+  const totalDeliveries = metricas?.metricas_principais?.["Total Deliveries"] || 0;
+  const totalRevenue = metricas?.metricas_principais?.["Total Revenue"] || 0;
+  const activeDrivers = metricas?.metricas_principais?.["Active Drivers"] || 0;
+  const averageRevenuePerDelivery = metricas?.metricas_principais?.["Average Revenue per Delivery"] || 0;
+  
+  // Extrair métricas de tempo do banco de dados
+  const averageCollectionTime = metricas?.medias?.["Collection Time (minutos)"] || 0;
+  const averageDeliveryTime = metricas?.medias?.["Delivery Time (minutos)"] || 0;
+  const averageCustomerExperience = metricas?.medias?.["Customer Experience (minutos)"] || 0;
+  
+  // Taxa de sucesso para referência
+  const successRate = metricas?.analise_status?.taxa_sucesso?.percentual || 0;
+  const deliveredCount = metricas?.analise_status?.resumo_quantitativo?.entregas_concluidas || 0;
+
+  // Debug: Log das métricas para verificar os dados
+  console.log('🔍 Debug Dashboard - Métricas do banco:', {
+    averageCollectionTime,
+    averageDeliveryTime,
+    averageCustomerExperience,
+    totalDeliveries,
+    metricas: metricas?.medias,
+    fonte: metricas?.resumo_processamento?.fonte
+  });
+
+  return (
+    <div className="p-8">
+      <Topbar 
+        title="Dashboard" 
+        onRefresh={handleRefresh}
+        onImportData={handleImportData}
+      />
+
+      {/* Status do banco - indicador visual */}
+      {statusBanco && (
+        <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center">
+              <div className={`w-2 h-2 rounded-full mr-2 ${statusBanco.banco_conectado ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              {statusBanco.banco_conectado ? 'Conectado ao banco de dados' : 'Desconectado do banco'}
+            </span>
+            <span className="text-gray-600">
+              {statusBanco.total_registros_banco || 0} registros no banco | 
+              {statusBanco.total_registros_memoria || 0} em memória
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Dashboard Overview Section */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-[#001B38] mb-6">Dashboard Overview</h2>
+        
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+          <DashboardCard
+            title="Total Deliveries"
+            value={totalDeliveries.toString()}
+            subtitle={`${deliveredCount} completed`}
+            icon={<Package className="w-5 h-5" />}
+            status="good"
+          />
+          
+          <DashboardCard
+            title="Collection Time"
+            value={averageCollectionTime > 0 ? apiService.formatTime(averageCollectionTime) : "0m"}
+            subtitle="Average collection time"
+            icon={<Clock className="w-5 h-5" />}
+            status={averageCollectionTime <= 30 ? "good" : averageCollectionTime <= 60 ? "warning" : "critical"}
+          />
+          
+          <DashboardCard
+            title="Average Delivery Time"
+            value={averageDeliveryTime > 0 ? apiService.formatTime(averageDeliveryTime) : "0m"}
+            subtitle="Average delivery time"
+            icon={<Clock className="w-5 h-5" />}
+            status="good"
+          />
+          
+          <DashboardCard
+            title="Total Revenue"
+            value={apiService.formatCurrency(totalRevenue)}
+            subtitle={`${deliveredCount} completed orders`}
+            icon={<DollarSign className="w-5 h-5" />}
+            status="good"
+          />
+          
+          <DashboardCard
+            title="Active Drivers"
+            value={activeDrivers.toString()}
+            subtitle="Total drivers with deliveries"
+            icon={<Users className="w-5 h-5" />}
+          />
+        </div>
+
+        {/* Second Row of Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <DashboardCard
+            title="Customer Experience"
+            value={averageCustomerExperience > 0 ? apiService.formatTime(averageCustomerExperience) : "N/A"}
+            subtitle="Total experience time (Collection + Delivery)"
+            icon={<Clock className="w-5 h-5" />}
+            status={averageCustomerExperience > 0 ? (averageCustomerExperience <= 90 ? "good" : averageCustomerExperience <= 180 ? "warning" : "critical") : "warning"}
+          />
+          
+          <DashboardCard
+            title="Revenue per Delivery"
+            value={apiService.formatCurrency(averageRevenuePerDelivery)}
+            subtitle="Average revenue per delivery"
+            icon={<DollarSign className="w-5 h-5" />}
+          />
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <BarChartDrivers driverStats={driverStats} />
+        <DonutDeliveryStatus statusDistribution={statusDistribution} />
+      </div>
+    </div>
+  );
+}
