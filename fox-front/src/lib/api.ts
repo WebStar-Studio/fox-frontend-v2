@@ -1,4 +1,4 @@
-import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution } from '@/types';
+import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse } from '@/types';
 
 const API_BASE_URL = 'http://localhost:5000';
 
@@ -24,7 +24,16 @@ class ApiService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Melhor tratamento para diferentes tipos de erro
+        if (response.status === 404) {
+          throw new Error(`404: Endpoint não encontrado ou dados ainda sendo processados`);
+        } else if (response.status === 500) {
+          throw new Error(`500: Erro interno do servidor`);
+        } else if (response.status === 503) {
+          throw new Error(`503: Serviço temporariamente indisponível`);
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
       }
       
       const data = await response.json();
@@ -94,6 +103,19 @@ class ApiService {
     return this.request('/limpar-banco', {
       method: 'DELETE',
     });
+  }
+
+  // Novos endpoints para métricas avançadas
+  async getEmpresasMetricas(): Promise<EmpresasResponse> {
+    return this.request('/empresas');
+  }
+
+  async getLocalizacoesEntrega(): Promise<LocalizacoesEntregaResponse> {
+    return this.request('/localizacoes-entrega');
+  }
+
+  async getEntregadoresMetricas(): Promise<EntregadoresResponse> {
+    return this.request('/entregadores');
   }
 
   // Métodos utilitários para processar dados

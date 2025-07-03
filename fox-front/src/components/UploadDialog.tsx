@@ -21,7 +21,8 @@ export function UploadDialog({ children }: UploadDialogProps) {
       uploadMutation.mutate(file, {
         onSuccess: (data) => {
           console.log('Upload successful:', data);
-          setTimeout(() => setIsOpen(false), 2000); // Fechar dialog após 2 segundos
+          // Aguardar um pouco mais para o dashboard atualizar antes de fechar
+          setTimeout(() => setIsOpen(false), 3000); // Fechar dialog após 3 segundos
         },
         onError: (error) => {
           console.error('Upload failed:', error);
@@ -106,6 +107,9 @@ export function UploadDialog({ children }: UploadDialogProps) {
                   {uploadMutation.data?.registros_salvos_db && 
                     ` | ${uploadMutation.data.registros_salvos_db} salvos no banco`
                   }
+                </div>
+                <div className="text-xs text-green-600 mt-1">
+                  ⏳ Aguardando dashboard atualizar...
                 </div>
               </div>
             </div>

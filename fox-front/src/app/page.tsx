@@ -4,6 +4,7 @@ import { Topbar } from "@/components/Topbar";
 import { DashboardCard } from "@/components/DashboardCard";
 import { BarChartDrivers } from "@/components/BarChartDrivers";
 import { DonutDeliveryStatus } from "@/components/DonutDeliveryStatus";
+import { TopDrivers } from "@/components/TopDrivers";
 import { UploadDialog } from "@/components/UploadDialog";
 import { useDashboardData, useRefreshData } from "@/hooks/useApiData";
 import { apiService } from "@/lib/api";
@@ -27,6 +28,7 @@ export default function Dashboard() {
     dados, 
     driverStats, 
     statusDistribution, 
+    topDrivers,
     statusBanco, 
     isLoading, 
     error,
@@ -190,8 +192,20 @@ export default function Dashboard() {
     averageDeliveryTime,
     averageCustomerExperience,
     totalDeliveries,
+    averageRevenuePerDelivery,
     metricas: metricas?.medias,
     fonte: metricas?.resumo_processamento?.fonte
+  });
+
+  // Debug: Log dos top drivers
+  console.log('🔍 Debug Dashboard - Top Drivers:', {
+    topDriversCount: topDrivers.length,
+    topDrivers: topDrivers.map(d => ({
+      nome: d.nome,
+      entregas_entrega: d.entregas_entrega,
+      entregas_coleta: d.entregas_coleta,
+      total_entregas: d.total_entregas
+    }))
   });
 
   return (
@@ -284,9 +298,35 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
         <BarChartDrivers driverStats={driverStats} />
         <DonutDeliveryStatus statusDistribution={statusDistribution} />
+      </div>
+
+      {/* Top Drivers Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <TopDrivers drivers={topDrivers} />
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-[#001B38] mb-4">Performance Metrics</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Success Rate</span>
+              <span className="text-lg font-bold text-[#001B38]">{apiService.formatPercentage(successRate)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Average Revenue per Delivery</span>
+              <span className="text-lg font-bold text-[#001B38]">{apiService.formatCurrency(averageRevenuePerDelivery)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Total Active Drivers</span>
+              <span className="text-lg font-bold text-[#001B38]">{activeDrivers}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Completed Deliveries</span>
+              <span className="text-lg font-bold text-[#001B38]">{deliveredCount}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

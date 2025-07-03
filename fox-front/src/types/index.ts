@@ -172,4 +172,51 @@ export interface StatusBanco {
   url_banco: string;
   ultimo_upload?: string;
   erro?: string;
+}
+
+// Novos tipos para os endpoints avançados
+export interface EmpresaMetricas {
+  nome: string;
+  total_pedidos: number;
+  localizacoes_pickup: string[];
+  total_localizacoes: number;
+  endereco_mais_comum: string;
+  total_entregas: number;
+}
+
+export interface EmpresasResponse {
+  total_empresas: number;
+  total_pedidos: number;
+  empresa_mais_ativa: EmpresaMetricas | null;
+  fonte: 'banco_de_dados' | 'memoria';
+  empresas: EmpresaMetricas[];
+}
+
+export interface LocalizacaoEntrega {
+  endereco: string;
+  total_entregas: number;
+}
+
+export interface LocalizacoesEntregaResponse {
+  total_localizacoes: number;
+  total_entregas: number;
+  localizacao_mais_comum: LocalizacaoEntrega | null;
+  fonte: 'banco_de_dados' | 'memoria';
+  localizacoes: LocalizacaoEntrega[];
+}
+
+export interface EntregadorMetricas {
+  nome: string;
+  entregas_coleta: number;
+  entregas_entrega: number;
+  total_entregas: number;
+}
+
+export interface EntregadoresResponse {
+  total_entregadores: number;
+  total_entregas: number;
+  media_entregas_por_entregador: number;
+  entregador_mais_ativo: EntregadorMetricas | null;
+  fonte: 'banco_de_dados' | 'memoria';
+  entregadores: EntregadorMetricas[];
 } 

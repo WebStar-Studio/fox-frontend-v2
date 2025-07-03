@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DriverData, DriverStats } from "@/types";
 
@@ -15,6 +15,32 @@ export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
     deliveries: stat.total_deliveries,
     successRate: stat.success_rate
   }));
+
+  // Tooltip customizado para mostrar detalhes
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-[#001B38] mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center space-x-2 mb-1">
+              <div 
+                className="w-3 h-3 rounded" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-sm text-gray-600">
+                {entry.dataKey === 'deliveries' ? 'Deliveries' : 'Success Rate'}: 
+              </span>
+              <span className="text-sm font-medium">
+                {entry.dataKey === 'deliveries' ? entry.value : `${entry.value.toFixed(1)}%`}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   // Fallback para dados vazios
   if (driversData.length === 0) {
@@ -72,6 +98,7 @@ export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
                 tick={{ fontSize: 12, fill: '#666' }}
                 domain={[0, 100]}
               />
+              <Tooltip content={<CustomTooltip />} />
               <Bar 
                 yAxisId="left"
                 dataKey="deliveries" 
