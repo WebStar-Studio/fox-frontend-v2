@@ -1,6 +1,6 @@
 import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse } from '@/types';
 
-const API_BASE_URL = 'http://localhost:5000/';
+const API_BASE_URL = 'https://fox-backend-lkbb.onrender.com/';
 
 class ApiService {
   private baseUrl: string;
