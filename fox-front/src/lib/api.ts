@@ -176,10 +176,13 @@ class ApiService {
     
     deliveries.forEach(delivery => {
       const status = delivery.status || 'Unknown';
-      statusMap.set(status, (statusMap.get(status) || 0) + 1);
+      // Filtrar status "submitted" para não aparecer no chart
+      if (status.toLowerCase() !== 'submitted') {
+        statusMap.set(status, (statusMap.get(status) || 0) + 1);
+      }
     });
 
-    const total = deliveries.length;
+    const total = Array.from(statusMap.values()).reduce((sum, count) => sum + count, 0);
     
     return Array.from(statusMap.entries()).map(([status, count]) => ({
       status,
