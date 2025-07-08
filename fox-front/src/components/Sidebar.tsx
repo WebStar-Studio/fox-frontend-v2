@@ -2,7 +2,8 @@
 
 import { 
   LayoutDashboard, 
-  Building2
+  Building2,
+  Users
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { SidebarItem } from "@/types";
@@ -20,6 +21,13 @@ const sidebarItems: SidebarItem[] = [
     label: "Companies",
     icon: <Building2 className="w-5 h-5" />,
     href: "/companies",
+    isActive: false
+  },
+  {
+    id: "drivers",
+    label: "Drivers",
+    icon: <Users className="w-5 h-5" />,
+    href: "/drivers",
     isActive: false
   }
 ];

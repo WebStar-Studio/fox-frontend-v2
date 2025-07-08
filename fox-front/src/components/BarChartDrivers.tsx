@@ -2,21 +2,20 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DriverData, DriverStats } from "@/types";
+import { DriverStats } from "@/types";
 
 interface BarChartDriversProps {
   driverStats: DriverStats[];
 }
 
 export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
-  // Converter DriverStats para DriverData para compatibilidade com o gráfico
-  const driversData: DriverData[] = driverStats.slice(0, 5).map(stat => ({
+  // Converter DriverStats para formato simplificado apenas com deliveries
+  const driversData = driverStats.slice(0, 5).map(stat => ({
     name: stat.driver_name,
-    deliveries: stat.total_deliveries,
-    successRate: stat.success_rate
+    deliveries: stat.total_deliveries
   }));
 
-  // Tooltip customizado para mostrar detalhes
+  // Tooltip customizado para mostrar apenas deliveries
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -29,10 +28,10 @@ export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
                 style={{ backgroundColor: entry.color }}
               />
               <span className="text-sm text-gray-600">
-                {entry.dataKey === 'deliveries' ? 'Deliveries' : 'Success Rate'}: 
+                Deliveries: 
               </span>
               <span className="text-sm font-medium">
-                {entry.dataKey === 'deliveries' ? entry.value : `${entry.value.toFixed(1)}%`}
+                {entry.value}
               </span>
             </div>
           ))}
@@ -48,7 +47,7 @@ export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
       <Card className="bg-white">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold text-[#001B38]">
-            Top 5 Drivers - Best Success Rate
+            Top 5 Drivers - Deliveries
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -59,17 +58,13 @@ export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
       </Card>
     );
   }
+  
   return (
     <Card className="bg-white">
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-[#001B38]">
-            Top 5 Drivers - Best Success Rate
-          </CardTitle>
-          <button className="text-sm text-blue-600 hover:text-blue-800">
-            Click to view details
-          </button>
-        </div>
+        <CardTitle className="text-lg font-semibold text-[#001B38]">
+          Top 5 Drivers - Deliveries
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-80">
@@ -83,33 +78,14 @@ export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
                 tick={{ fontSize: 12, fill: '#666' }}
               />
               <YAxis 
-                yAxisId="left"
-                orientation="left"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 12, fill: '#666' }}
-                domain={[0, 120]}
-              />
-              <YAxis 
-                yAxisId="right"
-                orientation="right"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: '#666' }}
-                domain={[0, 100]}
               />
               <Tooltip content={<CustomTooltip />} />
               <Bar 
-                yAxisId="left"
                 dataKey="deliveries" 
                 fill="#001B38" 
-                radius={[4, 4, 0, 0]}
-                barSize={40}
-              />
-              <Bar 
-                yAxisId="right"
-                dataKey="successRate" 
-                fill="#FF7F0E" 
                 radius={[4, 4, 0, 0]}
                 barSize={40}
               />
@@ -120,10 +96,6 @@ export function BarChartDrivers({ driverStats }: BarChartDriversProps) {
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 bg-[#001B38] rounded"></div>
             <span className="text-sm text-gray-600">Deliveries</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-[#FF7F0E] rounded"></div>
-            <span className="text-sm text-gray-600">Success Rate %</span>
           </div>
         </div>
       </CardContent>

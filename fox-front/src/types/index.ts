@@ -4,15 +4,9 @@ export interface DashboardCardProps {
   subtitle: string;
   icon?: React.ReactNode;
   status?: 'good' | 'warning' | 'critical';
-}
-
-export interface DriverData {
-  name: string;
-  deliveries: number;
-  successRate: number;
-}
-
-export interface DeliveryStatusData {
+  }
+  
+  export interface DeliveryStatusData {
   name: string;
   value: number;
   color: string;
@@ -77,10 +71,11 @@ export interface MetricasResumo {
     "Customer Experience (minutos)": number | null;
   };
   metricas_principais: {
-    "Total Revenue": number;
+    "Total Courier Commission": number;
     "Active Drivers": number;
     "Total Deliveries": number;
-    "Average Revenue per Delivery": number;
+    "Total Distance": number;
+    "Average Distance per Delivery": number;
   };
   estatisticas_detalhadas: {
     "Collection Time": {
@@ -219,4 +214,43 @@ export interface EntregadoresResponse {
   entregador_mais_ativo: EntregadorMetricas | null;
   fonte: 'banco_de_dados' | 'memoria';
   entregadores: EntregadorMetricas[];
+}
+
+export interface IntervaloTemporal {
+  intervalo_centro: string;
+  intervalo_inicio: string;
+  intervalo_fim: string;
+  quantidade_pedidos: number;
+  descricao: string;
+  dia_semana: string;
+  periodo_do_dia: string;
+}
+
+export interface AnaliseTemporalResponse {
+  fonte: 'banco_de_dados' | 'memoria';
+  analise_temporal: {
+    total_pedidos_analisados: number;
+    total_horarios_diferentes: number;
+    total_intervalos_30min: number;
+    horario_mais_movimentado: {
+      data_hora: string;
+      quantidade_pedidos: number;
+    } | null;
+    pedidos_por_datetime: Array<{
+      data_hora: string;
+      quantidade_pedidos: number;
+    }>;
+    top10_intervalos_30min: IntervaloTemporal[];
+  };
+  resumo: {
+    total_pedidos_analisados: number;
+    total_horarios_diferentes: number;
+    total_intervalos_30min: number;
+    horario_mais_movimentado: {
+      data_hora: string;
+      quantidade_pedidos: number;
+    } | null;
+    top_intervalo_30min: IntervaloTemporal | null;
+    total_intervalos_analisados: number;
+  };
 } 

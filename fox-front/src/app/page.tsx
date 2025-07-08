@@ -5,22 +5,26 @@ import { DashboardCard } from "@/components/DashboardCard";
 import { BarChartDrivers } from "@/components/BarChartDrivers";
 import { DonutDeliveryStatus } from "@/components/DonutDeliveryStatus";
 import { TopDrivers } from "@/components/TopDrivers";
+import { TopIntervals } from "@/components/TopIntervals";
 import { UploadDialog } from "@/components/UploadDialog";
-import { useDashboardData, useRefreshData } from "@/hooks/useApiData";
+import { useDashboardData, useRefreshData, useAnaliseTemporalMetricas, useEmpresasMetricas } from "@/hooks/useApiData";
 import { apiService } from "@/lib/api";
 import { 
   Package, 
   TrendingUp, 
   Clock, 
-  DollarSign, 
+  Euro, 
   Users, 
   MapPin,
   AlertCircle,
   Loader2,
   Upload,
   FileSpreadsheet,
-  RefreshCw
+  RefreshCw,
+  Calendar,
+  Building2
 } from "lucide-react";
+import { useState } from "react";
 
 export default function Dashboard() {
   const { 
@@ -28,15 +32,17 @@ export default function Dashboard() {
     dados, 
     driverStats, 
     statusDistribution, 
-    topDrivers,
+    topDrivers, 
     statusBanco, 
     isLoading, 
-    error,
-    isDatabaseEmpty,
+    error, 
+    isDatabaseEmpty, 
     refetch 
   } = useDashboardData();
   
+  const { data: analiseTemporalData } = useAnaliseTemporalMetricas();
   const refreshData = useRefreshData();
+  const { data: empresasMetricas } = useEmpresasMetricas();
 
   const handleRefresh = () => {
     console.log("Refreshing dashboard...");
@@ -173,18 +179,20 @@ export default function Dashboard() {
 
   // Extrair métricas principais do banco de dados
   const totalDeliveries = metricas?.metricas_principais?.["Total Deliveries"] || 0;
-  const totalRevenue = metricas?.metricas_principais?.["Total Revenue"] || 0;
+  const totalCourierCommission = metricas?.metricas_principais?.["Total Courier Commission"] || 0;
   const activeDrivers = metricas?.metricas_principais?.["Active Drivers"] || 0;
-  const averageRevenuePerDelivery = metricas?.metricas_principais?.["Average Revenue per Delivery"] || 0;
+  const totalDistance = metricas?.metricas_principais?.["Total Distance"] || 0;
+  const averageDistancePerDelivery = metricas?.metricas_principais?.["Average Distance per Delivery"] || 0;
   
   // Extrair métricas de tempo do banco de dados
   const averageCollectionTime = metricas?.medias?.["Collection Time (minutos)"] || 0;
   const averageDeliveryTime = metricas?.medias?.["Delivery Time (minutos)"] || 0;
   const averageCustomerExperience = metricas?.medias?.["Customer Experience (minutos)"] || 0;
   
-  // Taxa de sucesso para referência
-  const successRate = metricas?.analise_status?.taxa_sucesso?.percentual || 0;
   const deliveredCount = metricas?.analise_status?.resumo_quantitativo?.entregas_concluidas || 0;
+  
+  // Extrair métricas de empresas
+  const activeCompanies = empresasMetricas?.total_empresas || 0;
 
   // Debug: Log das métricas para verificar os dados
   console.log('🔍 Debug Dashboard - Métricas do banco:', {
@@ -192,7 +200,9 @@ export default function Dashboard() {
     averageDeliveryTime,
     averageCustomerExperience,
     totalDeliveries,
-    averageRevenuePerDelivery,
+    totalCourierCommission,
+    totalDistance,
+    averageDistancePerDelivery,
     metricas: metricas?.medias,
     fonte: metricas?.resumo_processamento?.fonte
   });
@@ -237,7 +247,7 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold text-[#001B38] mb-6">Dashboard Overview</h2>
         
         {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
           <DashboardCard
             title="Total Deliveries"
             value={totalDeliveries.toString()}
@@ -263,10 +273,10 @@ export default function Dashboard() {
           />
           
           <DashboardCard
-            title="Total Revenue"
-            value={apiService.formatCurrency(totalRevenue)}
+            title="Total Courier Commission"
+            value={apiService.formatCurrency(totalCourierCommission)}
             subtitle={`${deliveredCount} completed orders`}
-            icon={<DollarSign className="w-5 h-5" />}
+            icon={<Euro className="w-5 h-5" />}
             status="good"
           />
           
@@ -275,6 +285,13 @@ export default function Dashboard() {
             value={activeDrivers.toString()}
             subtitle="Total drivers with deliveries"
             icon={<Users className="w-5 h-5" />}
+          />
+          
+          <DashboardCard
+            title="Active Companies"
+            value={activeCompanies.toString()}
+            subtitle="Total companies with orders"
+            icon={<Building2 className="w-5 h-5" />}
           />
         </div>
 
@@ -289,10 +306,10 @@ export default function Dashboard() {
           />
           
           <DashboardCard
-            title="Revenue per Delivery"
-            value={apiService.formatCurrency(averageRevenuePerDelivery)}
-            subtitle="Average revenue per delivery"
-            icon={<DollarSign className="w-5 h-5" />}
+            title="Total Distance"
+            value={`${totalDistance.toFixed(1)} km`}
+            subtitle="Total distance traveled"
+            icon={<MapPin className="w-5 h-5" />}
           />
         </div>
       </div>
@@ -303,19 +320,15 @@ export default function Dashboard() {
         <DonutDeliveryStatus statusDistribution={statusDistribution} />
       </div>
 
-      {/* Top Drivers Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      {/* Top Drivers and Analytics Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
         <TopDrivers drivers={topDrivers} />
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-[#001B38] mb-4">Performance Metrics</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Success Rate</span>
-              <span className="text-lg font-bold text-[#001B38]">{apiService.formatPercentage(successRate)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Average Revenue per Delivery</span>
-              <span className="text-lg font-bold text-[#001B38]">{apiService.formatCurrency(averageRevenuePerDelivery)}</span>
+              <span className="text-gray-600">Average Distance per Delivery</span>
+              <span className="text-lg font-bold text-[#001B38]">{averageDistancePerDelivery.toFixed(1)} km</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Total Active Drivers</span>
@@ -326,6 +339,52 @@ export default function Dashboard() {
               <span className="text-lg font-bold text-[#001B38]">{deliveredCount}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Temporal Analysis Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <TopIntervals intervals={analiseTemporalData?.analise_temporal?.top10_intervalos_30min || []} />
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-[#001B38] mb-4">Temporal Insights</h3>
+          {analiseTemporalData ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Total Orders Analyzed</span>
+                <span className="text-lg font-bold text-[#001B38]">
+                  {analiseTemporalData.resumo.total_pedidos_analisados}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Different Time Slots</span>
+                <span className="text-lg font-bold text-[#001B38]">
+                  {analiseTemporalData.resumo.total_horarios_diferentes}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Peak Intervals (30min)</span>
+                <span className="text-lg font-bold text-[#001B38]">
+                  {analiseTemporalData.resumo.total_intervalos_analisados}
+                </span>
+              </div>
+              {analiseTemporalData.resumo.horario_mais_movimentado && (
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="text-sm text-gray-600 mb-2">Busiest Time Slot</div>
+                  <div className="text-lg font-bold text-[#001B38]">
+                    {analiseTemporalData.resumo.horario_mais_movimentado.data_hora}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {analiseTemporalData.resumo.horario_mais_movimentado.quantidade_pedidos} orders
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500">Loading temporal data...</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

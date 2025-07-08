@@ -1,17 +1,14 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Award, TrendingUp, Eye } from "lucide-react";
+import { Users, Award, TrendingUp } from "lucide-react";
 import { EntregadorMetricas } from "@/types";
-import { TopDriversDialog } from "./TopDriversDialog";
-import { useState } from "react";
 
 interface TopDriversProps {
   drivers: EntregadorMetricas[];
 }
 
 export function TopDrivers({ drivers }: TopDriversProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Filtrar e ordenar os drivers por entregas_entrega (não total_entregas)
   const topDrivers = drivers
@@ -82,21 +79,8 @@ export function TopDrivers({ drivers }: TopDriversProps) {
             <span>Based on delivery count</span>
             <span>{drivers.length} total drivers</span>
           </div>
-          <button
-            onClick={() => setIsDialogOpen(true)}
-            className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 bg-[#001B38] text-white rounded-lg hover:bg-[#002855] transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-            <span>View Details</span>
-          </button>
         </div>
       </CardContent>
-      
-      <TopDriversDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        drivers={drivers}
-      />
     </Card>
   );
 } 

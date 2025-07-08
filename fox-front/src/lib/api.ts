@@ -1,6 +1,6 @@
-import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse } from '@/types';
+import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse } from '@/types';
 
-const API_BASE_URL = 'https://fox-backend-lkbb.onrender.com/';
+const API_BASE_URL = 'http://localhost:5000/';
 
 class ApiService {
   private baseUrl: string;
@@ -116,6 +116,10 @@ class ApiService {
 
   async getEntregadoresMetricas(): Promise<EntregadoresResponse> {
     return this.request('/entregadores');
+  }
+
+  async getAnaliseTemporalMetricas(): Promise<AnaliseTemporalResponse> {
+    return this.request('/analise-temporal');
   }
 
   // Métodos utilitários para processar dados

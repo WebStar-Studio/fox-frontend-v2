@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/lib/api';
-import { DeliveryRecord, MetricasResumo, ApiResponse, StatusBanco, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse } from '@/types';
+import { DeliveryRecord, MetricasResumo, ApiResponse, StatusBanco, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse } from '@/types';
 
 /*
  * ✅ CORREÇÃO: Problema de erro 404 após upload
@@ -28,7 +28,8 @@ export const QUERY_KEYS = {
   // Novos endpoints para métricas avançadas
   empresas: 'empresas',
   localizacoesEntrega: 'localizacoes-entrega',
-  entregadores: 'entregadores'
+  entregadores: 'entregadores',
+  analiseTemporal: 'analise-temporal'
 } as const;
 
 // Hook para obter dados híbridos (banco primeiro, depois memória)
@@ -163,6 +164,7 @@ export function useUploadPlanilha() {
           queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.empresas] });
           queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.localizacoesEntrega] });
           queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.entregadores] });
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.analiseTemporal] });
           
           console.log('✅ Todas as queries foram invalidadas (incluindo métricas avançadas)!');
         }, 500); // Aguardar 500ms adicional
@@ -192,6 +194,7 @@ export function useLimparBanco() {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.empresas] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.localizacoesEntrega] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.entregadores] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.analiseTemporal] });
     },
   });
 }
@@ -202,6 +205,7 @@ export function useDashboardData() {
   const metricasBanco = useMetricasResumoBanco();
   const dadosBanco = useDadosBanco();
   const entregadoresMetricas = useEntregadoresMetricas();
+  const analiseTemporalMetricas = useAnaliseTemporalMetricas();
 
   // Usar APENAS dados do banco de dados (sem fallback para memória)
   const metricas = metricasBanco.data;
@@ -214,13 +218,13 @@ export function useDashboardData() {
   const isDatabaseEmpty = statusData?.banco_conectado && statusData?.total_registros_banco === 0;
   
   // Se o banco está vazio, não considerar como loading ou error
-  const isLoading = isStatusLoading || (!isDatabaseEmpty && (metricasBanco.isLoading || dadosBanco.isLoading || entregadoresMetricas.isLoading));
+  const isLoading = isStatusLoading || (!isDatabaseEmpty && (metricasBanco.isLoading || dadosBanco.isLoading || entregadoresMetricas.isLoading || analiseTemporalMetricas.isLoading));
   
   // Só considerar erro se não for banco vazio e houver erro real de conexão
   const hasConnectionError = !isDatabaseEmpty && (
     statusBanco.error || 
     (!statusData?.banco_conectado && !statusBanco.isLoading) ||
-    (statusData?.total_registros_banco > 0 && (metricasBanco.error || dadosBanco.error || entregadoresMetricas.error))
+    (statusData?.total_registros_banco > 0 && (metricasBanco.error || dadosBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error))
   );
   
   // Calcular estatísticas de drivers apenas com dados do banco
@@ -235,7 +239,7 @@ export function useDashboardData() {
     topDrivers,
     statusBanco: statusData,
     isLoading,
-    error: hasConnectionError ? (statusBanco.error || metricasBanco.error || dadosBanco.error || entregadoresMetricas.error) : null,
+    error: hasConnectionError ? (statusBanco.error || metricasBanco.error || dadosBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error) : null,
     isDatabaseEmpty,
     refetch: () => {
       statusBanco.refetch();
@@ -243,6 +247,7 @@ export function useDashboardData() {
         metricasBanco.refetch();
         dadosBanco.refetch();
         entregadoresMetricas.refetch();
+        analiseTemporalMetricas.refetch();
       }
     }
   };
@@ -262,6 +267,7 @@ export function useRefreshData() {
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.empresas] });
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.localizacoesEntrega] });
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.entregadores] });
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.analiseTemporal] });
     
     // Manter outros para compatibilidade, mas com prioridade menor
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.dadosHibrido] });
@@ -289,8 +295,8 @@ export function useEmpresasMetricas() {
       return failureCount < 1;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
-    // Só buscar se houver dados no banco ou memória
-    enabled: (statusBanco.data as StatusBanco)?.total_registros_banco > 0 || (statusBanco.data as StatusBanco)?.total_registros_memoria > 0,
+    // Tentar buscar sempre, para mostrar loading adequado
+    enabled: true,
   });
 }
 
@@ -310,8 +316,8 @@ export function useLocalizacoesEntrega() {
       return failureCount < 1;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
-    // Só buscar se houver dados no banco ou memória
-    enabled: (statusBanco.data as StatusBanco)?.total_registros_banco > 0 || (statusBanco.data as StatusBanco)?.total_registros_memoria > 0,
+    // Tentar buscar sempre, para mostrar loading adequado
+    enabled: true,
   });
 }
 
@@ -331,8 +337,29 @@ export function useEntregadoresMetricas() {
       return failureCount < 1;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
-    // Só buscar se houver dados no banco ou memória
-    enabled: (statusBanco.data as StatusBanco)?.total_registros_banco > 0 || (statusBanco.data as StatusBanco)?.total_registros_memoria > 0,
+    // Tentar buscar sempre, para mostrar loading adequado
+    enabled: true,
+  });
+}
+
+// Hook para obter análise temporal
+export function useAnaliseTemporalMetricas() {
+  const statusBanco = useStatusBanco();
+  
+  return useQuery({
+    queryKey: [QUERY_KEYS.analiseTemporal],
+    queryFn: () => apiService.getAnaliseTemporalMetricas(),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: (failureCount, error) => {
+      if (failureCount < 3 && error?.message?.includes('404')) {
+        console.log(`🔄 Retry ${failureCount + 1}/3 para análise temporal (404 - dados sendo processados)`);
+        return true;
+      }
+      return failureCount < 1;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+    // Tentar buscar sempre, para mostrar loading adequado
+    enabled: true,
   });
 }
 
@@ -341,18 +368,21 @@ export function useMetricasAvancadas() {
   const empresas = useEmpresasMetricas();
   const localizacoes = useLocalizacoesEntrega();
   const entregadores = useEntregadoresMetricas();
+  const analiseTemporal = useAnaliseTemporalMetricas();
   
   return {
     empresas: empresas.data,
     localizacoes: localizacoes.data,
     entregadores: entregadores.data,
-    isLoading: empresas.isLoading || localizacoes.isLoading || entregadores.isLoading,
-    error: empresas.error || localizacoes.error || entregadores.error,
-    isSuccess: empresas.isSuccess && localizacoes.isSuccess && entregadores.isSuccess,
+    analiseTemporal: analiseTemporal.data,
+    isLoading: empresas.isLoading || localizacoes.isLoading || entregadores.isLoading || analiseTemporal.isLoading,
+    error: empresas.error || localizacoes.error || entregadores.error || analiseTemporal.error,
+    isSuccess: empresas.isSuccess && localizacoes.isSuccess && entregadores.isSuccess && analiseTemporal.isSuccess,
     refetch: () => {
       empresas.refetch();
       localizacoes.refetch();
       entregadores.refetch();
+      analiseTemporal.refetch();
     }
   };
 } 
