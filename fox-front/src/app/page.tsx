@@ -320,72 +320,16 @@ export default function Dashboard() {
         <DonutDeliveryStatus statusDistribution={statusDistribution} />
       </div>
 
-      {/* Top Drivers and Analytics Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+      {/* Top Drivers Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-1 gap-8 mb-8">
         <TopDrivers drivers={topDrivers} />
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-[#001B38] mb-4">Performance Metrics</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Average Distance per Delivery</span>
-              <span className="text-lg font-bold text-[#001B38]">{averageDistancePerDelivery.toFixed(1)} km</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Total Active Drivers</span>
-              <span className="text-lg font-bold text-[#001B38]">{activeDrivers}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Completed Deliveries</span>
-              <span className="text-lg font-bold text-[#001B38]">{deliveredCount}</span>
-            </div>
-          </div>
-        </div>
+        
       </div>
 
       {/* Temporal Analysis Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <TopIntervals intervals={analiseTemporalData?.analise_temporal?.top10_intervalos_30min || []} />
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-[#001B38] mb-4">Temporal Insights</h3>
-          {analiseTemporalData ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Total Orders Analyzed</span>
-                <span className="text-lg font-bold text-[#001B38]">
-                  {analiseTemporalData.resumo.total_pedidos_analisados}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Different Time Slots</span>
-                <span className="text-lg font-bold text-[#001B38]">
-                  {analiseTemporalData.resumo.total_horarios_diferentes}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Peak Intervals (30min)</span>
-                <span className="text-lg font-bold text-[#001B38]">
-                  {analiseTemporalData.resumo.total_intervalos_analisados}
-                </span>
-              </div>
-              {analiseTemporalData.resumo.horario_mais_movimentado && (
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="text-sm text-gray-600 mb-2">Busiest Time Slot</div>
-                  <div className="text-lg font-bold text-[#001B38]">
-                    {analiseTemporalData.resumo.horario_mais_movimentado.data_hora}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {analiseTemporalData.resumo.horario_mais_movimentado.quantidade_pedidos} orders
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500">Loading temporal data...</p>
-            </div>
-          )}
-        </div>
+       
       </div>
     </div>
   );
