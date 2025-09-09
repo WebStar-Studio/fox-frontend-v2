@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useUploadPlanilha } from '@/hooks/useApiData';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 interface UploadDialogProps {
   children: React.ReactNode;
@@ -98,20 +98,38 @@ export function UploadDialog({ children }: UploadDialogProps) {
           )}
 
           {uploadMutation.isSuccess && (
-            <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <div className="text-green-800">
-                <div className="font-medium">Upload realizado com sucesso!</div>
-                <div className="text-sm">
-                  {uploadMutation.data?.total_registros} registros processados
-                  {uploadMutation.data?.registros_salvos_db && 
-                    ` | ${uploadMutation.data.registros_salvos_db} salvos no banco`
-                  }
-                </div>
-                <div className="text-xs text-green-600 mt-1">
-                  ⏳ Aguardando dashboard atualizar...
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="text-green-800">
+                  <div className="font-medium">Upload realizado com sucesso!</div>
+                  <div className="text-sm mt-1">
+                    📊 {uploadMutation.data?.total_registros} registros processados
+                    {uploadMutation.data?.registros_inseridos !== undefined && (
+                      <> | ✅ {uploadMutation.data.registros_inseridos} novos registros salvos</>
+                    )}
+                  </div>
+                  <div className="text-xs text-green-600 mt-1">
+                    ⏳ Aguardando dashboard atualizar...
+                  </div>
                 </div>
               </div>
+              
+              {/* Alerta sobre duplicatas encontradas */}
+              {uploadMutation.data?.duplicatas_evitadas && uploadMutation.data.duplicatas_evitadas > 0 && (
+                <div className="flex items-start gap-2 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-amber-800">
+                    <div className="font-medium">Dados duplicados detectados</div>
+                    <div className="text-sm mt-1">
+                      🔍 {uploadMutation.data.duplicatas_evitadas} registro{uploadMutation.data.duplicatas_evitadas > 1 ? 's' : ''} duplicado{uploadMutation.data.duplicatas_evitadas > 1 ? 's foram encontrados' : ' foi encontrado'} e não {uploadMutation.data.duplicatas_evitadas > 1 ? 'foram inseridos' : 'foi inserido'}.
+                    </div>
+                    <div className="text-xs text-amber-600 mt-1">
+                      💡 Duplicatas são identificadas pelo Job ID. Dados já existentes não são sobrescritos.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

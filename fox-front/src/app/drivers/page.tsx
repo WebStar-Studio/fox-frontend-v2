@@ -124,7 +124,7 @@ export default function DriversPage() {
         {/* Total Deliveries */}
         <DashboardCard
           title="Total Deliveries"
-          value={entregadoresData.total_entregas.toString()}
+          value={entregadoresData.entregadores.reduce((total, entregador) => total + entregador.entregas_entrega, 0).toString()}
           subtitle={`Across all drivers`}
           icon={<Package className="w-6 h-6" />}
           status="good"
@@ -154,13 +154,7 @@ export default function DriversPage() {
                   Driver Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Collections
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Deliveries
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Orders
                 </th>
               </tr>
             </thead>
@@ -178,30 +172,10 @@ export default function DriversPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <span className="text-sm font-medium text-gray-900 mr-2">
-                        {entregador.entregas_coleta}
-                      </span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {entregador.entregas_coleta}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className="text-sm font-medium text-gray-900 mr-2">
                         {entregador.entregas_entrega}
                       </span>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         {entregador.entregas_entrega}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className="text-sm font-medium text-gray-900 mr-2">
-                        {entregador.total_entregas}
-                      </span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {entregador.total_entregas}
                       </span>
                     </div>
                   </td>
@@ -236,14 +210,14 @@ export default function DriversPage() {
                 {entregadoresData.entregador_mais_ativo.nome}
               </p>
               <p className="text-blue-700 text-sm">
-                {entregadoresData.entregador_mais_ativo.entregas_coleta} collections • {entregadoresData.entregador_mais_ativo.entregas_entrega} deliveries
+                Top performer in deliveries
               </p>
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-blue-900">
-                {entregadoresData.entregador_mais_ativo.total_entregas}
+                {entregadoresData.entregador_mais_ativo.entregas_entrega}
               </div>
-              <div className="text-blue-700 text-sm">total orders</div>
+              <div className="text-blue-700 text-sm">deliveries</div>
             </div>
           </div>
         </div>

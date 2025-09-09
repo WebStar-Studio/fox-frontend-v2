@@ -169,6 +169,22 @@ export interface StatusBanco {
   erro?: string;
 }
 
+export interface UploadResponse {
+  sucesso: boolean;
+  mensagem: string;
+  total_registros: number;
+  arquivo: string;
+  colunas_processadas: number;
+  colunas_obrigatorias_encontradas: number;
+  colunas_opcionais_encontradas: number;
+  salvo_no_banco: boolean;
+  registros_inseridos?: number;
+  duplicatas_evitadas?: number;
+  erro_banco?: string;
+  erro?: string;
+  detalhes?: string;
+}
+
 // Novos tipos para os endpoints avançados
 export interface EmpresaMetricas {
   nome: string;

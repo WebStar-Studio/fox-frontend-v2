@@ -1,4 +1,4 @@
-import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse } from '@/types';
+import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse } from '@/types';
 
 const API_BASE_URL = 'https://fox-backend-lkbb.onrender.com/';
 
@@ -83,7 +83,7 @@ class ApiService {
     return this.request('/status-banco');
   }
 
-  async uploadPlanilha(file: File) {
+  async uploadPlanilha(file: File): Promise<UploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -93,7 +93,8 @@ class ApiService {
     });
 
     if (!response.ok) {
-      throw new Error(`Upload failed: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.erro || errorData.detalhes || `Upload failed: ${response.status}`);
     }
 
     return response.json();
