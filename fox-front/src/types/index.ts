@@ -269,4 +269,91 @@ export interface AnaliseTemporalResponse {
     top_intervalo_30min: IntervaloTemporal | null;
     total_intervalos_analisados: number;
   };
-} 
+}
+
+// ========== TIPOS DE AUTENTICAÇÃO ==========
+
+export type UserRole = 'admin' | 'client';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  name: string;
+  role?: UserRole; // Opcional, padrão será 'client'
+}
+
+export interface AuthResponse {
+  user: AuthUser | null;
+  error?: string;
+}
+
+export interface AuthContextType {
+  user: AuthUser | null;
+  loading: boolean;
+  login: (credentials: LoginCredentials) => Promise<AuthResponse>;
+  register: (credentials: RegisterCredentials) => Promise<AuthResponse>;
+  logout: () => Promise<void>;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isClient: boolean;
+}
+
+// Permissões específicas por role
+export interface RolePermissions {
+  canViewFullDashboard: boolean;
+  canViewDrivers: boolean;
+  canViewCompanies: boolean;
+  canViewAnalytics: boolean;
+  canUploadData: boolean;
+  canManageUsers: boolean;
+  allowedMetrics: string[];
+}
+
+export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
+  admin: {
+    canViewFullDashboard: true,
+    canViewDrivers: true,
+    canViewCompanies: true,
+    canViewAnalytics: true,
+    canUploadData: true,
+    canManageUsers: true,
+    allowedMetrics: ['all']
+  },
+  client: {
+    canViewFullDashboard: false,
+    canViewDrivers: false,
+    canViewCompanies: false,
+    canViewAnalytics: false,
+    canUploadData: false,
+    canManageUsers: false,
+    allowedMetrics: [
+      'total_deliveries',
+      'collection_time',
+      'avg_time',
+      'customer_experience',
+      'top_peak_hours',
+      'delivery_completion_status'
+    ]
+  }
+}; 

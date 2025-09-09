@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminRoute } from "@/components/ProtectedRoute";
 import { Topbar } from "@/components/Topbar";
 import { DashboardCard } from "@/components/DashboardCard";
 import { BarChartDrivers } from "@/components/BarChartDrivers";
@@ -26,7 +27,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-export default function Dashboard() {
+function DashboardContent() {
   const { 
     metricas, 
     dados, 
@@ -332,5 +333,13 @@ export default function Dashboard() {
        
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <AdminRoute>
+      <DashboardContent />
+    </AdminRoute>
   );
 }

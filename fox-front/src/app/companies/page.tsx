@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminRoute } from "@/components/ProtectedRoute";
 import { Topbar } from "@/components/Topbar";
 import { DashboardCard } from "@/components/DashboardCard";
 import { useEmpresasMetricas, useRefreshData } from "@/hooks/useApiData";
@@ -12,7 +13,7 @@ import {
   FileSpreadsheet
 } from "lucide-react";
 
-export default function CompaniesPage() {
+function CompaniesPageContent() {
   const { data: empresasData, isLoading, error, refetch } = useEmpresasMetricas();
   const refreshData = useRefreshData();
 
@@ -241,4 +242,12 @@ export default function CompaniesPage() {
       )}
     </div>
   );
-} 
+}
+
+export default function CompaniesPage() {
+  return (
+    <AdminRoute>
+      <CompaniesPageContent />
+    </AdminRoute>
+  );
+}

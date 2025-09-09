@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminRoute } from "@/components/ProtectedRoute";
 import { Topbar } from "@/components/Topbar";
 import { DashboardCard } from "@/components/DashboardCard";
 import { useEntregadoresMetricas, useRefreshData } from "@/hooks/useApiData";
@@ -13,7 +14,7 @@ import {
   Users
 } from "lucide-react";
 
-export default function DriversPage() {
+function DriversPageContent() {
   const { data: entregadoresData, isLoading, error, refetch } = useEntregadoresMetricas();
   const refreshData = useRefreshData();
 
@@ -223,5 +224,13 @@ export default function DriversPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DriversPage() {
+  return (
+    <AdminRoute>
+      <DriversPageContent />
+    </AdminRoute>
   );
 } 
