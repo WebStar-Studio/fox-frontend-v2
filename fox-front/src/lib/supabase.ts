@@ -35,18 +35,24 @@ export class AuthService {
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
+      console.log('[login] Attempting login for:', credentials.email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
       });
 
       if (error) {
+        console.error('[login] Auth error:', error);
         return { user: null, error: error.message };
       }
 
       if (!data.user) {
+        console.error('[login] No user returned from auth');
         return { user: null, error: 'Login failed' };
       }
+
+      console.log('[login] Auth successful, fetching profile for:', data.user.id);
 
       // Buscar dados do perfil do usuário
       const { data: profile, error: profileError } = await supabase
@@ -55,19 +61,30 @@ export class AuthService {
         .eq('id', data.user.id)
         .single();
 
-      if (profileError || !profile) {
-        return { user: null, error: 'User profile not found' };
+      if (profileError) {
+        console.error('[login] Profile error:', profileError);
+        // Se não encontrar perfil, usar dados da sessão
+        const authUser: AuthUser = {
+          id: data.user.id,
+          email: data.user.email!,
+          name: data.user.user_metadata?.name || 'User',
+          role: data.user.user_metadata?.role || 'client',
+        };
+        return { user: authUser };
       }
+
+      console.log('[login] Profile found:', profile);
 
       const authUser: AuthUser = {
         id: data.user.id,
-        email: data.user.email!,
+        email: credentials.email,
         name: profile.name,
         role: profile.role,
       };
 
       return { user: authUser };
     } catch (error) {
+      console.error('[login] Unexpected error:', error);
       return { user: null, error: 'Login failed' };
     }
   }
@@ -134,34 +151,58 @@ export class AuthService {
    */
   async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      // Primeiro verificar se há uma sessão válida
+      console.log('[getCurrentUser] Checking session...');
+      
+      // Usar getSession que é mais confiável para sessões persistidas
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session?.user) {
-        console.log('No valid session found');
+      if (sessionError) {
+        console.error('[getCurrentUser] Session error:', sessionError);
+        return null;
+      }
+      
+      if (!session?.user) {
+        console.log('[getCurrentUser] No session found');
         return null;
       }
 
-      // Buscar dados do perfil do usuário
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+      console.log('[getCurrentUser] Session found for:', session.user.email);
 
-      if (profileError || !profile) {
-        console.warn('Profile not found for user:', session.user.id);
-        return null;
+      // Buscar dados do perfil do usuário com timeout mais curto
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle(); // Usar maybeSingle ao invés de single para evitar erro se não existir
+
+        if (profileError) {
+          console.warn('[getCurrentUser] Profile error:', profileError);
+        }
+
+        if (profile) {
+          console.log('[getCurrentUser] Profile found:', profile.email);
+          return {
+            id: session.user.id,
+            email: session.user.email!,
+            name: profile.name,
+            role: profile.role,
+          };
+        }
+      } catch (profileError) {
+        console.warn('[getCurrentUser] Error fetching profile:', profileError);
       }
 
+      // Usar dados da sessão como fallback
+      console.log('[getCurrentUser] Using session metadata as fallback');
       return {
         id: session.user.id,
         email: session.user.email!,
-        name: profile.name,
-        role: profile.role,
+        name: session.user.user_metadata?.name || 'User',
+        role: session.user.user_metadata?.role || 'client',
       };
     } catch (error) {
-      console.error('Error getting current user:', error);
+      console.error('[getCurrentUser] Unexpected error:', error);
       return null;
     }
   }

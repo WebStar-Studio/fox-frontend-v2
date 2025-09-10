@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types';
@@ -19,38 +19,62 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [hasChecked, setHasChecked] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
-    // Só verificar após o loading terminar
-    if (!loading && !hasChecked) {
-      setHasChecked(true);
-      
+    // Remover timeout automático - deixar a autenticação carregar normalmente
+    // O timeout estava causando redirecionamentos prematuros
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Verificar autenticação quando loading terminar
+    if (!loading) {
+      // Limpar timeout se auth carregou com sucesso
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
       // Se requer autenticação e usuário não está logado
       if (requireAuth && !isAuthenticated) {
-        console.log('Redirecting to login - not authenticated');
-        router.push('/login');
+        console.log('[ProtectedRoute] Not authenticated, redirecting to login');
+        if (!hasRedirected.current) {
+          hasRedirected.current = true;
+          router.push('/login');
+        }
         return;
       }
 
       // Se requer role específico e usuário não tem o role
       if (requiredRole && user && user.role !== requiredRole) {
-        console.log(`Redirecting - wrong role. Required: ${requiredRole}, Current: ${user.role}`);
-        // Redirecionar baseado no role atual
-        if (user.role === 'client') {
-          router.push('/client-dashboard');
-        } else if (user.role === 'admin') {
-          router.push('/');
-        } else {
-          router.push('/login');
+        console.log(`[ProtectedRoute] Wrong role. Required: ${requiredRole}, Current: ${user.role}`);
+        if (!hasRedirected.current) {
+          hasRedirected.current = true;
+          // Redirecionar baseado no role atual
+          if (user.role === 'client') {
+            router.push('/client-dashboard');
+          } else if (user.role === 'admin') {
+            router.push('/');
+          } else {
+            router.push('/login');
+          }
         }
         return;
       }
+
+      // Se passou todas as verificações, renderizar
+      setShouldRender(true);
     }
-  }, [loading, isAuthenticated, user, requiredRole, requireAuth, router, hasChecked]);
+  }, [loading, isAuthenticated, user, requiredRole, requireAuth, router]);
 
   // Mostrar loading enquanto verifica autenticação
-  if (loading || !hasChecked) {
+  if (loading || !shouldRender) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex items-center space-x-2">

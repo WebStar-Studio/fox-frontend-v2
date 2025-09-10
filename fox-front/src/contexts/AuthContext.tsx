@@ -9,47 +9,46 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
     const initAuth = async () => {
       try {
-        // Aguardar um pequeno delay para garantir que o localStorage está disponível
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        console.log('[AuthContext] Starting auth initialization...');
         const currentUser = await authService.getCurrentUser();
         
         if (isMounted) {
+          console.log('[AuthContext] User loaded:', currentUser?.email || 'No user');
           setUser(currentUser);
-          setIsInitialized(true);
           setLoading(false);
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('[AuthContext] Init error:', error);
         if (isMounted) {
+          setUser(null);
           setLoading(false);
-          setIsInitialized(true);
         }
       }
     };
 
-    // Monitorar mudanças no estado de autenticação
+    // Escutar mudanças de autenticação
     const { data: { subscription } } = authService.onAuthStateChange((authUser) => {
+      console.log('[AuthContext] Auth state changed:', authUser?.email || 'No user');
       if (isMounted) {
         setUser(authUser);
-        if (!isInitialized) {
-          setIsInitialized(true);
-          setLoading(false);
-        }
+        setLoading(false);
       }
     });
 
-    initAuth();
+    // Inicializar com um pequeno delay para garantir que o localStorage está pronto
+    const timer = setTimeout(() => {
+      initAuth();
+    }, 50);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
       subscription?.unsubscribe();
     };
   }, []);
