@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { AuthUser, LoginCredentials, RegisterCredentials, AuthResponse } from '@/types';
+import { AuthUser, LoginCredentials, RegisterCredentials, AuthResponse, User } from '@/types';
 
 // Configurações do Supabase - Fox Delivery System
 const supabaseUrl = 'https://mqjzleuzlnzxkhkbmnhr.supabase.co';
@@ -151,6 +151,132 @@ export class AuthService {
         callback(null);
       }
     });
+  }
+
+  /**
+   * Obter todos os usuários (apenas para administradores)
+   */
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const { data, error } = await supabase.rpc('get_users_with_emails');
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Criar um novo administrador
+   */
+  async createAdmin(credentials: RegisterCredentials): Promise<AuthResponse> {
+    try {
+      console.log('🔧 AuthService.createAdmin chamado com:', { ...credentials, password: '[HIDDEN]' });
+      
+      // Criar o usuário na autenticação com metadata incluindo role
+      const { data, error } = await supabase.auth.signUp({
+        email: credentials.email,
+        password: credentials.password,
+        options: {
+          data: {
+            name: credentials.name,
+            role: 'admin', // O trigger vai usar este valor
+          },
+        },
+      });
+
+      console.log('📡 Resposta do supabase.auth.signUp:', { data: data?.user?.id, error: error?.message });
+
+      if (error) {
+        console.log('❌ Erro no signUp:', error.message);
+        return { user: null, error: error.message };
+      }
+
+      if (!data.user) {
+        console.log('❌ Usuário não criado');
+        return { user: null, error: 'Failed to create user' };
+      }
+
+      console.log('✅ Usuário criado na auth, ID:', data.user.id);
+      console.log('✅ Trigger automático deve ter criado perfil com role=admin');
+
+      // Aguardar um pouco para o trigger processar
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verificar se o perfil foi criado corretamente
+      const { data: profile, error: checkError } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      console.log('🔍 Verificando perfil criado:', { profile, checkError });
+
+      // Se não foi criado como admin, forçar update
+      if (!profile || profile.role !== 'admin') {
+        console.log('⚠️ Role incorreta, forçando UPDATE para admin...');
+        
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({
+            name: credentials.name,
+            role: 'admin',
+          })
+          .eq('id', data.user.id);
+
+        console.log('📡 Resultado do UPDATE forçado:', { updateError });
+
+        if (updateError) {
+          console.log('❌ Erro no update forçado:', updateError.message);
+          return { user: null, error: `Falha ao definir role admin: ${updateError.message}` };
+        }
+
+        console.log('✅ UPDATE forçado bem-sucedido!');
+      } else {
+        console.log('✅ Perfil já criado corretamente como admin!');
+      }
+
+      const authUser: AuthUser = {
+        id: data.user.id,
+        email: credentials.email,
+        name: credentials.name,
+        role: 'admin',
+      };
+
+      return { user: authUser };
+    } catch (error) {
+      console.error('Error creating admin:', error);
+      return { user: null, error: 'Failed to create admin' };
+    }
+  }
+
+  /**
+   * Excluir um usuário (apenas para administradores)
+   */
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      // Primeiro, excluir o perfil do usuário
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
+      // Nota: Para excluir completamente o usuário da autenticação,
+      // seria necessário usar a API de administrador do Supabase
+      // Por enquanto, apenas excluímos o perfil
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
   }
 }
 

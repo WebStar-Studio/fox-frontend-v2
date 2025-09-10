@@ -5,7 +5,8 @@ import {
   Building2,
   Users,
   LogOut,
-  User
+  User,
+  Settings
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -32,6 +33,13 @@ const sidebarItems: SidebarItem[] = [
     label: "Drivers",
     icon: <Users className="w-5 h-5" />,
     href: "/drivers",
+    isActive: false
+  },
+  {
+    id: "admin-manage",
+    label: "Gerenciar Admins",
+    icon: <Settings className="w-5 h-5" />,
+    href: "/admin/manage",
     isActive: false
   }
 ];
