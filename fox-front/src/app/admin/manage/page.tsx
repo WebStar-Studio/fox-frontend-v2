@@ -112,11 +112,18 @@ function AdminManageContent() {
       } else {
         console.log('✅ Admin criado com sucesso!');
         setFormSuccess('Administrator created successfully!');
+        
+        // Limpar formulário
         setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+        
+        // Recarregar lista imediatamente
+        await loadUsers();
+        
+        // Fechar popup após mostrar sucesso por um breve momento
         setTimeout(() => {
+          setFormSuccess('');
           setShowCreateForm(false);
-          loadUsers(); // Recarregar lista
-        }, 1500);
+        }, 1000);
       }
     } catch (error) {
       console.error('❌ Erro capturado:', error);

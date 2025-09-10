@@ -5,7 +5,28 @@ import { AuthUser, LoginCredentials, RegisterCredentials, AuthResponse, User } f
 const supabaseUrl = 'https://mqjzleuzlnzxkhkbmnhr.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xanpsZXV6bG56eGtoa2JtbmhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMjcwMDgsImV4cCI6MjA2NDgwMzAwOH0.heXYddv63EbKsdSaX7lfq3byVAEWvF5RqK-e8_lbpn4';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Configuração otimizada para persistência de sessão
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: {
+      getItem: (key) => {
+        if (typeof window === 'undefined') return null;
+        return window.localStorage.getItem(key);
+      },
+      setItem: (key, value) => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(key, value);
+      },
+      removeItem: (key) => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.removeItem(key);
+      },
+    },
+  },
+});
 
 export class AuthService {
   
@@ -62,6 +83,7 @@ export class AuthService {
         options: {
           data: {
             name: credentials.name,
+            role: credentials.role || 'client',
           },
         },
       });
@@ -74,9 +96,18 @@ export class AuthService {
         return { user: null, error: 'Registration failed' };
       }
 
-      // O perfil será criado automaticamente pelo trigger do Supabase
       // Aguardar um momento para garantir que o trigger execute
       await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Atualizar o perfil com email
+      await supabase
+        .from('user_profiles')
+        .update({
+          email: credentials.email,
+          name: credentials.name,
+          role: credentials.role || 'client',
+        })
+        .eq('id', data.user.id);
 
       const authUser: AuthUser = {
         id: data.user.id,
@@ -99,13 +130,15 @@ export class AuthService {
   }
 
   /**
-   * Obter usuário atual
+   * Obter usuário atual com sessão
    */
   async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Primeiro verificar se há uma sessão válida
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!user) {
+      if (sessionError || !session?.user) {
+        console.log('No valid session found');
         return null;
       }
 
@@ -113,20 +146,22 @@ export class AuthService {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .single();
 
       if (profileError || !profile) {
+        console.warn('Profile not found for user:', session.user.id);
         return null;
       }
 
       return {
-        id: user.id,
-        email: user.email!,
+        id: session.user.id,
+        email: session.user.email!,
         name: profile.name,
         role: profile.role,
       };
     } catch (error) {
+      console.error('Error getting current user:', error);
       return null;
     }
   }
@@ -155,7 +190,7 @@ export class AuthService {
 
   /**
    * Obter todos os usuários com emails (apenas para administradores)
-   * Usa função RPC para contornar limitações de RLS
+   * Usa função RPC para obter emails da tabela auth.users
    */
   async getAllUsers(): Promise<User[]> {
     try {
@@ -189,7 +224,7 @@ export class AuthService {
         options: {
           data: {
             name: credentials.name,
-            role: 'admin', // O trigger vai usar este valor
+            role: 'admin',
           },
         },
       });
@@ -207,43 +242,39 @@ export class AuthService {
       }
 
       console.log('✅ Usuário criado na auth, ID:', data.user.id);
-      console.log('✅ Trigger automático deve ter criado perfil com role=admin');
 
       // Aguardar um pouco para o trigger processar
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Verificar se o perfil foi criado corretamente
-      const { data: profile, error: checkError } = await supabase
+      // Atualizar o perfil com role admin e email
+      const { error: updateError } = await supabase
         .from('user_profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
+        .update({
+          name: credentials.name,
+          role: 'admin',
+          email: credentials.email, // Salvar email no perfil
+        })
+        .eq('id', data.user.id);
 
-      console.log('🔍 Verificando perfil criado:', { profile, checkError });
-
-      // Se não foi criado como admin, forçar update
-      if (!profile || profile.role !== 'admin') {
-        console.log('⚠️ Role incorreta, forçando UPDATE para admin...');
-        
-        const { error: updateError } = await supabase
+      if (updateError) {
+        console.log('❌ Erro ao atualizar perfil:', updateError.message);
+        // Tentar criar o perfil se não existir
+        const { error: insertError } = await supabase
           .from('user_profiles')
-          .update({
+          .insert({
+            id: data.user.id,
             name: credentials.name,
             role: 'admin',
-          })
-          .eq('id', data.user.id);
-
-        console.log('📡 Resultado do UPDATE forçado:', { updateError });
-
-        if (updateError) {
-          console.log('❌ Erro no update forçado:', updateError.message);
-          return { user: null, error: `Falha ao definir role admin: ${updateError.message}` };
+            email: credentials.email,
+          });
+        
+        if (insertError) {
+          console.log('❌ Erro ao criar perfil:', insertError.message);
+          return { user: null, error: `Falha ao criar perfil: ${insertError.message}` };
         }
-
-        console.log('✅ UPDATE forçado bem-sucedido!');
-      } else {
-        console.log('✅ Perfil já criado corretamente como admin!');
       }
+
+      console.log('✅ Perfil de admin criado/atualizado com sucesso!');
 
       const authUser: AuthUser = {
         id: data.user.id,

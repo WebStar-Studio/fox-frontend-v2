@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, usePermissions } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types';
 import { Loader2 } from 'lucide-react';
 
@@ -19,21 +19,27 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
+    // Só verificar após o loading terminar
+    if (!loading && !hasChecked) {
+      setHasChecked(true);
+      
       // Se requer autenticação e usuário não está logado
       if (requireAuth && !isAuthenticated) {
+        console.log('Redirecting to login - not authenticated');
         router.push('/login');
         return;
       }
 
       // Se requer role específico e usuário não tem o role
-      if (requiredRole && user?.role !== requiredRole) {
+      if (requiredRole && user && user.role !== requiredRole) {
+        console.log(`Redirecting - wrong role. Required: ${requiredRole}, Current: ${user.role}`);
         // Redirecionar baseado no role atual
-        if (user?.role === 'client') {
+        if (user.role === 'client') {
           router.push('/client-dashboard');
-        } else if (user?.role === 'admin') {
+        } else if (user.role === 'admin') {
           router.push('/');
         } else {
           router.push('/login');
@@ -41,10 +47,10 @@ export function ProtectedRoute({
         return;
       }
     }
-  }, [loading, isAuthenticated, user, requiredRole, requireAuth, router]);
+  }, [loading, isAuthenticated, user, requiredRole, requireAuth, router, hasChecked]);
 
   // Mostrar loading enquanto verifica autenticação
-  if (loading) {
+  if (loading || !hasChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex items-center space-x-2">
@@ -60,7 +66,7 @@ export function ProtectedRoute({
     return null; // Vai redirecionar
   }
 
-  // Se requer role específico e usuário não tem o role
+  // Se requer role específico e usuário não tem o role  
   if (requiredRole && user?.role !== requiredRole) {
     return null; // Vai redirecionar
   }

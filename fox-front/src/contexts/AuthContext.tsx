@@ -9,29 +9,47 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Verificar se o usuário está logado ao carregar a página
-    const initializeAuth = async () => {
+    let isMounted = true;
+
+    const initAuth = async () => {
       try {
+        // Aguardar um pequeno delay para garantir que o localStorage está disponível
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
+        
+        if (isMounted) {
+          setUser(currentUser);
+          setIsInitialized(true);
+          setLoading(false);
+        }
       } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        setLoading(false);
+        console.error('Auth initialization error:', error);
+        if (isMounted) {
+          setLoading(false);
+          setIsInitialized(true);
+        }
       }
     };
 
-    initializeAuth();
-
     // Monitorar mudanças no estado de autenticação
     const { data: { subscription } } = authService.onAuthStateChange((authUser) => {
-      setUser(authUser);
-      setLoading(false);
+      if (isMounted) {
+        setUser(authUser);
+        if (!isInitialized) {
+          setIsInitialized(true);
+          setLoading(false);
+        }
+      }
     });
 
+    initAuth();
+
     return () => {
+      isMounted = false;
       subscription?.unsubscribe();
     };
   }, []);
