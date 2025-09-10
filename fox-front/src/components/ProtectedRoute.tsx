@@ -20,58 +20,54 @@ export function ProtectedRoute({
   const { user, loading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [shouldRender, setShouldRender] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasRedirected = useRef(false);
+  const [maxWaitExceeded, setMaxWaitExceeded] = useState(false);
+  const hasChecked = useRef(false);
 
+  // Timeout máximo de 15 segundos - se não carregar até lá, assume não autenticado
   useEffect(() => {
-    // Remover timeout automático - deixar a autenticação carregar normalmente
-    // O timeout estava causando redirecionamentos prematuros
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
+    const maxWaitTimer = setTimeout(() => {
+      console.log('[ProtectedRoute] Max wait time exceeded (15s)');
+      setMaxWaitExceeded(true);
+    }, 15000);
+
+    return () => clearTimeout(maxWaitTimer);
   }, []);
 
   useEffect(() => {
-    // Verificar autenticação quando loading terminar
-    if (!loading) {
-      // Limpar timeout se auth carregou com sucesso
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+    // Se já verificou, não verificar novamente
+    if (hasChecked.current) return;
 
-      // Se requer autenticação e usuário não está logado
-      if (requireAuth && !isAuthenticated) {
-        console.log('[ProtectedRoute] Not authenticated, redirecting to login');
-        if (!hasRedirected.current) {
-          hasRedirected.current = true;
-          router.push('/login');
-        }
-        return;
-      }
+    // Se ainda está carregando e não excedeu o tempo máximo, aguardar
+    if (loading && !maxWaitExceeded) return;
 
-      // Se requer role específico e usuário não tem o role
-      if (requiredRole && user && user.role !== requiredRole) {
-        console.log(`[ProtectedRoute] Wrong role. Required: ${requiredRole}, Current: ${user.role}`);
-        if (!hasRedirected.current) {
-          hasRedirected.current = true;
-          // Redirecionar baseado no role atual
-          if (user.role === 'client') {
-            router.push('/client-dashboard');
-          } else if (user.role === 'admin') {
-            router.push('/');
-          } else {
-            router.push('/login');
-          }
-        }
-        return;
-      }
+    // Marcar como verificado
+    hasChecked.current = true;
+    console.log('[ProtectedRoute] Checking auth...', { loading, maxWaitExceeded, isAuthenticated, user });
 
-      // Se passou todas as verificações, renderizar
-      setShouldRender(true);
+    // Se excedeu o tempo máximo ou loading terminou, fazer verificação
+    if (requireAuth && !isAuthenticated) {
+      console.log('[ProtectedRoute] Not authenticated, redirecting to login');
+      router.push('/login');
+      return;
     }
-  }, [loading, isAuthenticated, user, requiredRole, requireAuth, router]);
+
+    // Se requer role específico e usuário não tem o role
+    if (requiredRole && user && user.role !== requiredRole) {
+      console.log(`[ProtectedRoute] Wrong role. Required: ${requiredRole}, Current: ${user.role}`);
+      // Redirecionar baseado no role atual
+      if (user.role === 'client') {
+        router.push('/client-dashboard');
+      } else if (user.role === 'admin') {
+        router.push('/');
+      } else {
+        router.push('/login');
+      }
+      return;
+    }
+
+    // Se passou todas as verificações, renderizar
+    setShouldRender(true);
+  }, [loading, maxWaitExceeded, isAuthenticated, user, requiredRole, requireAuth, router]);
 
   // Mostrar loading enquanto verifica autenticação
   if (loading || !shouldRender) {

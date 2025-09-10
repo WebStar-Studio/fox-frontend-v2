@@ -147,62 +147,122 @@ export class AuthService {
   }
 
   /**
-   * Obter usuário atual com sessão
+   * Obter usuário atual com sessão - com retry e fallback robusto
    */
-  async getCurrentUser(): Promise<AuthUser | null> {
+  async getCurrentUser(retryCount = 0): Promise<AuthUser | null> {
+    const maxRetries = 3;
+    
     try {
-      console.log('[getCurrentUser] Checking session...');
+      console.log(`[getCurrentUser] Attempt ${retryCount + 1} - Checking session...`);
       
-      // Usar getSession que é mais confiável para sessões persistidas
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Tentar recuperar a sessão com timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session timeout')), 3000)
+      );
       
-      if (sessionError) {
-        console.error('[getCurrentUser] Session error:', sessionError);
+      let session;
+      try {
+        const result = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        session = result.data?.session;
+        
+        if (result.error) {
+          throw result.error;
+        }
+      } catch (error) {
+        console.warn('[getCurrentUser] Session fetch error/timeout:', error);
+        
+        // Retry se ainda tiver tentativas
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+          return this.getCurrentUser(retryCount + 1);
+        }
+        
+        // Tentar pegar do localStorage diretamente como último recurso
+        if (typeof window !== 'undefined') {
+          const storageKey = 'sb-mqjzleuzlnzxkhkbmnhr-auth-token';
+          const stored = localStorage.getItem(storageKey);
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (parsed?.user) {
+                console.log('[getCurrentUser] Using localStorage fallback');
+                return {
+                  id: parsed.user.id,
+                  email: parsed.user.email,
+                  name: parsed.user.user_metadata?.name || 'User',
+                  role: parsed.user.user_metadata?.role || 'client',
+                };
+              }
+            } catch (e) {
+              console.error('[getCurrentUser] localStorage parse error:', e);
+            }
+          }
+        }
+        
         return null;
       }
       
       if (!session?.user) {
         console.log('[getCurrentUser] No session found');
+        
+        // Retry se ainda tiver tentativas
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return this.getCurrentUser(retryCount + 1);
+        }
+        
         return null;
       }
 
       console.log('[getCurrentUser] Session found for:', session.user.email);
 
-      // Buscar dados do perfil do usuário com timeout mais curto
+      // Tentar buscar perfil, mas não deixar travar
+      let profile = null;
       try {
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle(); // Usar maybeSingle ao invés de single para evitar erro se não existir
-
-        if (profileError) {
-          console.warn('[getCurrentUser] Profile error:', profileError);
-        }
-
-        if (profile) {
-          console.log('[getCurrentUser] Profile found:', profile.email);
-          return {
-            id: session.user.id,
-            email: session.user.email!,
-            name: profile.name,
-            role: profile.role,
-          };
-        }
-      } catch (profileError) {
-        console.warn('[getCurrentUser] Error fetching profile:', profileError);
+        const profileResult = await Promise.race([
+          supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Profile timeout')), 2000)
+          )
+        ]) as any;
+        
+        profile = profileResult?.data;
+      } catch (error) {
+        console.warn('[getCurrentUser] Profile fetch error/timeout:', error);
       }
 
-      // Usar dados da sessão como fallback
-      console.log('[getCurrentUser] Using session metadata as fallback');
-      return {
-        id: session.user.id,
-        email: session.user.email!,
-        name: session.user.user_metadata?.name || 'User',
-        role: session.user.user_metadata?.role || 'client',
-      };
+      // Retornar com dados do perfil ou fallback para sessão
+      if (profile) {
+        console.log('[getCurrentUser] Profile found:', profile.email);
+        return {
+          id: session.user.id,
+          email: profile.email || session.user.email!,
+          name: profile.name,
+          role: profile.role,
+        };
+      } else {
+        console.log('[getCurrentUser] Using session metadata as fallback');
+        return {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.name || 'User',
+          role: session.user.user_metadata?.role || 'client',
+        };
+      }
     } catch (error) {
       console.error('[getCurrentUser] Unexpected error:', error);
+      
+      // Last retry
+      if (retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return this.getCurrentUser(retryCount + 1);
+      }
+      
       return null;
     }
   }

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AuthContextType, AuthUser, LoginCredentials, RegisterCredentials, AuthResponse, ROLE_PERMISSIONS } from '@/types';
-import { authService } from '@/lib/supabase';
+import { authService, supabase } from '@/lib/supabase';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -12,10 +12,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    let initComplete = false;
 
     const initAuth = async () => {
+      if (initComplete) return;
+      initComplete = true;
+
       try {
         console.log('[AuthContext] Starting auth initialization...');
+        
+        // Forçar refresh da sessão no Supabase
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (session && !error) {
+            console.log('[AuthContext] Session refreshed successfully');
+          }
+        } catch (refreshError) {
+          console.warn('[AuthContext] Session refresh error:', refreshError);
+        }
+
         const currentUser = await authService.getCurrentUser();
         
         if (isMounted) {
@@ -35,20 +50,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = authService.onAuthStateChange((authUser) => {
       console.log('[AuthContext] Auth state changed:', authUser?.email || 'No user');
-      if (isMounted) {
+      if (isMounted && !loading) {
         setUser(authUser);
-        setLoading(false);
       }
     });
 
-    // Inicializar com um pequeno delay para garantir que o localStorage está pronto
-    const timer = setTimeout(() => {
-      initAuth();
-    }, 50);
+    // Detectar se é uma nova aba/janela
+    const isNewTab = !sessionStorage.getItem('auth-initialized');
+    
+    if (isNewTab) {
+      console.log('[AuthContext] New tab detected, forcing immediate init');
+      sessionStorage.setItem('auth-initialized', 'true');
+      initAuth(); // Inicializar imediatamente em nova aba
+    } else {
+      // Em recarregamento normal, pequeno delay
+      const timer = setTimeout(() => {
+        initAuth();
+      }, 50);
+      
+      return () => {
+        isMounted = false;
+        clearTimeout(timer);
+        subscription?.unsubscribe();
+      };
+    }
 
     return () => {
       isMounted = false;
-      clearTimeout(timer);
       subscription?.unsubscribe();
     };
   }, []);
