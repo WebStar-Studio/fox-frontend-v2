@@ -154,19 +154,23 @@ export class AuthService {
   }
 
   /**
-   * Obter todos os usuários (apenas para administradores)
+   * Obter todos os usuários com emails (apenas para administradores)
+   * Usa função RPC para contornar limitações de RLS
    */
   async getAllUsers(): Promise<User[]> {
     try {
+      console.log('🔍 Buscando todos os usuários via RPC...');
       const { data, error } = await supabase.rpc('get_users_with_emails');
-
+      
       if (error) {
-        throw new Error(error.message);
+        console.error('❌ Erro na RPC get_users_with_emails:', error);
+        throw error;
       }
 
+      console.log('✅ Usuários obtidos via RPC:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ Error in getAllUsers:', error);
       throw error;
     }
   }
@@ -260,21 +264,30 @@ export class AuthService {
    */
   async deleteUser(userId: string): Promise<void> {
     try {
-      // Primeiro, excluir o perfil do usuário
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', userId);
+      console.log('🗑️ Iniciando exclusão do usuário via RPC:', userId);
+      
+      // Usar função RPC que contorna limitações de RLS
+      const { data, error } = await supabase.rpc('delete_user_as_admin', {
+        user_id_to_delete: userId
+      });
 
-      if (profileError) {
-        throw new Error(profileError.message);
+      console.log('📡 Resultado da exclusão via RPC:', { data, error });
+
+      if (error) {
+        throw new Error(`Erro ao excluir usuário: ${error.message}`);
       }
+
+      if (!data) {
+        throw new Error('Falha na exclusão: função retornou false');
+      }
+
+      console.log('✅ Usuário excluído com sucesso via RPC!');
 
       // Nota: Para excluir completamente o usuário da autenticação,
       // seria necessário usar a API de administrador do Supabase
       // Por enquanto, apenas excluímos o perfil
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('❌ Error deleting user:', error);
       throw error;
     }
   }

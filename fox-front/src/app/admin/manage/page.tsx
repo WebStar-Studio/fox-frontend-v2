@@ -35,6 +35,26 @@ function AdminManageContent() {
     loadUsers();
   }, []);
 
+  // Efeito separado para hard-refresh após 5 segundos
+  useEffect(() => {
+    let refreshTimeout: NodeJS.Timeout;
+    
+    if (loading) {
+      console.log('⏱️ Iniciando timeout de 5s para hard-refresh...');
+      refreshTimeout = setTimeout(() => {
+        console.log('⚠️ Carregamento demorou mais de 5s, fazendo hard-refresh...');
+        window.location.reload();
+      }, 5000);
+    }
+
+    return () => {
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+        console.log('✅ Timeout de refresh cancelado - carregamento concluído');
+      }
+    };
+  }, [loading]);
+
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -57,19 +77,19 @@ function AdminManageContent() {
     // Validações
     if (!formData.name || !formData.email || !formData.password) {
       console.log('❌ Campos obrigatórios faltando');
-      setFormError('Todos os campos são obrigatórios');
+      setFormError('All fields are required');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
       console.log('❌ Senhas não coincidem');
-      setFormError('As senhas não coincidem');
+      setFormError('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
       console.log('❌ Senha muito curta');
-      setFormError('A senha deve ter pelo menos 6 caracteres');
+      setFormError('Password must be at least 6 characters');
       return;
     }
 
@@ -91,7 +111,7 @@ function AdminManageContent() {
         setFormError(response.error);
       } else {
         console.log('✅ Admin criado com sucesso!');
-        setFormSuccess('Administrador criado com sucesso!');
+        setFormSuccess('Administrator created successfully!');
         setFormData({ name: '', email: '', password: '', confirmPassword: '' });
         setTimeout(() => {
           setShowCreateForm(false);
@@ -100,22 +120,54 @@ function AdminManageContent() {
       }
     } catch (error) {
       console.error('❌ Erro capturado:', error);
-      setFormError(`Erro ao criar administrador: ${error}`);
+      setFormError(`Error creating administrator: ${error}`);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este usuário?')) {
+    if (!confirm('Are you sure you want to delete this user?')) {
       return;
     }
 
+    // Limpar mensagens anteriores
+    setFormError('');
+    setFormSuccess('');
+
     try {
+      console.log('🗑️ Iniciando exclusão via interface...', userId);
+      
+      // Fazer backup local da lista antes da exclusão
+      const currentUsers = [...users];
+      console.log('📋 Total de usuários antes da exclusão:', currentUsers.length);
+      
       await authService.deleteUser(userId);
-      setFormSuccess('Usuário excluído com sucesso!');
-      loadUsers();
+      
+      console.log('✅ Exclusão bem-sucedida, recarregando lista...');
+      
+      // Atualizar lista imediatamente removendo o usuário localmente
+      setUsers(currentUsers.filter(u => u.id !== userId));
+      
+      // Mostrar mensagem de sucesso
+      setFormSuccess('User deleted successfully!');
+      
+      // Recarregar do servidor para garantir sincronização
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Recarregando lista do servidor...');
+          const updatedUsers = await authService.getAllUsers();
+          console.log('📋 Total de usuários após recarregar:', updatedUsers.length);
+          setUsers(updatedUsers);
+          
+          // Limpar mensagem de sucesso após 3 segundos
+          setTimeout(() => setFormSuccess(''), 3000);
+        } catch (reloadError) {
+          console.error('❌ Erro ao recarregar lista:', reloadError);
+        }
+      }, 500);
+      
     } catch (error) {
-      setFormError('Erro ao excluir usuário');
-      console.error('Error deleting user:', error);
+      console.error('❌ Erro ao excluir usuário:', error);
+      setFormError(`Error deleting user: ${error}`);
     }
   };
 
@@ -132,14 +184,14 @@ function AdminManageContent() {
 
   return (
     <div className="p-8">
-      <Topbar title="Gerenciamento de Administradores" />
+      <Topbar title="Admin Management" />
 
-      {/* Header com botão de criar admin */}
+      {/* Header with create admin button */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-[#001B38]">Usuários da Plataforma</h2>
+          <h2 className="text-2xl font-bold text-[#001B38]">Platform Users</h2>
           <p className="text-gray-600 mt-1">
-            Gerencie administradores e visualize todos os usuários
+            Manage administrators and view all users
           </p>
         </div>
         
@@ -148,11 +200,11 @@ function AdminManageContent() {
           className="flex items-center space-x-2 px-4 py-2 bg-[#001B38] text-white rounded-lg hover:bg-[#002855] transition-colors"
         >
           <UserPlus className="w-4 h-4" />
-          <span>Criar Administrador</span>
+          <span>Create Administrator</span>
         </button>
       </div>
 
-      {/* Alertas de sucesso/erro */}
+      {/* Success/Error alerts */}
       {formError && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
           {formError}
@@ -165,7 +217,7 @@ function AdminManageContent() {
         </div>
       )}
 
-      {/* Formulário de criação de admin */}
+      {/* Create admin form */}
       {showCreateForm && (
         <div 
           className="fixed inset-0 flex items-center justify-center z-[9999]"
@@ -177,7 +229,7 @@ function AdminManageContent() {
           <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl border"
                onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-[#001B38]">Criar Novo Administrador</h3>
+              <h3 className="text-lg font-semibold text-[#001B38]">Create New Administrator</h3>
               <button
                 onClick={() => {
                   setShowCreateForm(false);
@@ -193,14 +245,14 @@ function AdminManageContent() {
             <form onSubmit={handleCreateAdmin} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome completo
+                  Full name
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#001B38]"
-                  placeholder="Nome do administrador"
+                  placeholder="Administrator name"
                 />
               </div>
 
@@ -219,27 +271,27 @@ function AdminManageContent() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Senha
+                  Password
                 </label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#001B38]"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Minimum 6 characters"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirmar senha
+                  Confirm password
                 </label>
                 <input
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#001B38]"
-                  placeholder="Confirme a senha"
+                  placeholder="Confirm the password"
                 />
               </div>
 
@@ -253,13 +305,13 @@ function AdminManageContent() {
                   }}
                   className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                  Cancelar
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2 bg-[#001B38] text-white rounded-md hover:bg-[#002855]"
                 >
-                  Criar Admin
+                  Create Admin
                 </button>
               </div>
             </form>
@@ -267,7 +319,7 @@ function AdminManageContent() {
         </div>
       )}
 
-      {/* Filtros */}
+      {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
           <div className="flex-1">
@@ -275,7 +327,7 @@ function AdminManageContent() {
               <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar por nome ou email..."
+                placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#001B38]"
@@ -290,9 +342,9 @@ function AdminManageContent() {
               onChange={(e) => setFilterRole(e.target.value as 'all' | 'admin' | 'client')}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#001B38]"
             >
-              <option value="all">Todos os usuários</option>
-              <option value="admin">Apenas Admins</option>
-              <option value="client">Apenas Clientes</option>
+              <option value="all">All users</option>
+              <option value="admin">Admins only</option>
+              <option value="client">Clients only</option>
             </select>
           </div>
         </div>
@@ -300,17 +352,17 @@ function AdminManageContent() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Carregando usuários...</div>
+          <div className="text-gray-500">Loading users...</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Seção de Administradores */}
+          {/* Administrators section */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200 bg-red-50">
               <div className="flex items-center space-x-2">
                 <Shield className="w-5 h-5 text-red-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Administradores ({adminUsers.length})
+                  Administrators ({adminUsers.length})
                 </h3>
               </div>
             </div>
@@ -327,7 +379,7 @@ function AdminManageContent() {
                         <div className="font-medium text-gray-900">{admin.name}</div>
                         <div className="text-sm text-gray-500">{admin.email}</div>
                         <div className="text-xs text-gray-400">
-                          Criado em: {new Date(admin.created_at).toLocaleDateString('pt-BR')}
+                          Created on: {new Date(admin.created_at).toLocaleDateString('en-US')}
                         </div>
                       </div>
                     </div>
@@ -336,7 +388,7 @@ function AdminManageContent() {
                       <button
                         onClick={() => handleDeleteUser(admin.id)}
                         className="text-red-600 hover:text-red-800 p-1"
-                        title="Excluir administrador"
+                        title="Delete administrator"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -347,19 +399,19 @@ function AdminManageContent() {
               
               {adminUsers.length === 0 && (
                 <div className="p-8 text-center text-gray-500">
-                  Nenhum administrador encontrado
+                  No administrators found
                 </div>
               )}
             </div>
           </div>
 
-          {/* Seção de Clientes */}
+          {/* Clients section */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200 bg-blue-50">
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-blue-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Clientes ({clientUsers.length})
+                  Clients ({clientUsers.length})
                 </h3>
               </div>
             </div>
@@ -376,7 +428,7 @@ function AdminManageContent() {
                         <div className="font-medium text-gray-900">{client.name}</div>
                         <div className="text-sm text-gray-500">{client.email}</div>
                         <div className="text-xs text-gray-400">
-                          Criado em: {new Date(client.created_at).toLocaleDateString('pt-BR')}
+                          Created on: {new Date(client.created_at).toLocaleDateString('en-US')}
                         </div>
                       </div>
                     </div>
@@ -384,7 +436,7 @@ function AdminManageContent() {
                     <button
                       onClick={() => handleDeleteUser(client.id)}
                       className="text-red-600 hover:text-red-800 p-1"
-                      title="Excluir cliente"
+                      title="Delete client"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -394,7 +446,7 @@ function AdminManageContent() {
               
               {clientUsers.length === 0 && (
                 <div className="p-8 text-center text-gray-500">
-                  Nenhum cliente encontrado
+                  No clients found
                 </div>
               )}
             </div>
@@ -402,14 +454,14 @@ function AdminManageContent() {
         </div>
       )}
 
-      {/* Estatísticas resumidas */}
+      {/* Summary statistics */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center space-x-2">
             <Users className="w-5 h-5 text-gray-600" />
             <div>
               <div className="text-2xl font-bold text-gray-900">{users.length}</div>
-              <div className="text-sm text-gray-500">Total de Usuários</div>
+              <div className="text-sm text-gray-500">Total Users</div>
             </div>
           </div>
         </div>
@@ -421,7 +473,7 @@ function AdminManageContent() {
               <div className="text-2xl font-bold text-gray-900">
                 {users.filter(u => u.role === 'admin').length}
               </div>
-              <div className="text-sm text-gray-500">Administradores</div>
+              <div className="text-sm text-gray-500">Administrators</div>
             </div>
           </div>
         </div>
@@ -433,7 +485,7 @@ function AdminManageContent() {
               <div className="text-2xl font-bold text-gray-900">
                 {users.filter(u => u.role === 'client').length}
               </div>
-              <div className="text-sm text-gray-500">Clientes</div>
+              <div className="text-sm text-gray-500">Clients</div>
             </div>
           </div>
         </div>

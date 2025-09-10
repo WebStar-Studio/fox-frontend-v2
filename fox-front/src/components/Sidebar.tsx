@@ -37,7 +37,7 @@ const sidebarItems: SidebarItem[] = [
   },
   {
     id: "admin-manage",
-    label: "Gerenciar Admins",
+    label: "Manage Users",
     icon: <Settings className="w-5 h-5" />,
     href: "/admin/manage",
     isActive: false
