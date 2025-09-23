@@ -43,7 +43,7 @@ export function useDadosHibrido() {
 }
 
 // Hook para obter dados do banco
-export function useDadosBanco(limit?: number) {
+export function useDadosBanco(limit?: number, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [QUERY_KEYS.dadosBanco, limit],
     queryFn: () => apiService.getDadosBanco(limit),
@@ -57,6 +57,7 @@ export function useDadosBanco(limit?: number) {
       return failureCount < 1; // Retry padrão para outros erros
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000), // Delay exponencial até 3s
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -202,8 +203,15 @@ export function useLimparBanco() {
 // Hook combinado para dashboard - usa APENAS dados do banco de dados
 export function useDashboardData() {
   const statusBanco = useStatusBanco();
+  // Usar o total de registros do banco como limit para garantir que buscamos TODOS os dados
+  const statusData = statusBanco.data as StatusBanco;
+  const totalRegistros = statusData?.total_registros_banco;
+  // Só buscar dados do banco quando já soubermos o total, para evitar uma primeira busca sem limit
+  const dadosBanco = useDadosBanco(
+    totalRegistros && totalRegistros > 0 ? totalRegistros : undefined,
+    { enabled: typeof totalRegistros === 'number' && totalRegistros >= 0 }
+  );
   const metricasBanco = useMetricasResumoBanco();
-  const dadosBanco = useDadosBanco();
   const entregadoresMetricas = useEntregadoresMetricas();
   const analiseTemporalMetricas = useAnaliseTemporalMetricas();
 
@@ -214,7 +222,6 @@ export function useDashboardData() {
   
   // Lógica melhorada para loading e error states
   const isStatusLoading = statusBanco.isLoading;
-  const statusData = statusBanco.data as StatusBanco;
   const isDatabaseEmpty = statusData?.banco_conectado && statusData?.total_registros_banco === 0;
   
   // Se o banco está vazio, não considerar como loading ou error
