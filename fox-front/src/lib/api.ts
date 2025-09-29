@@ -36,9 +36,12 @@ interface PaginationParams {
 
 class ApiService {
   private baseUrl: string;
+  private debugMode: boolean;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+    // Apenas ativar logs em desenvolvimento
+    this.debugMode = process.env.NODE_ENV === 'development';
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -71,7 +74,10 @@ class ApiService {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error(`API Error (${endpoint}):`, error);
+      // Apenas logar erros críticos em produção
+      if (this.debugMode) {
+        console.error(`API Error (${endpoint}):`, error);
+      }
       throw error;
     }
   }
@@ -93,8 +99,10 @@ class ApiService {
   // Função auxiliar para buscar todos os dados com paginação manual
   // ESTRATÉGIA: Múltiplas requisições de 1000 em 1000 para evitar timeout em produção
   private async fetchAllData<T>(endpoint: string, supportsPagination: boolean = true): Promise<ApiResponse<T>> {
-    console.log(`[ApiService] 🔄 Paginação MANUAL no frontend para ${endpoint}`);
-    console.log(`[ApiService] Estratégia: Múltiplas requisições pequenas para evitar timeout 502`);
+    if (this.debugMode) {
+      console.log(`[ApiService] 🔄 Paginação MANUAL no frontend para ${endpoint}`);
+      console.log(`[ApiService] Estratégia: Múltiplas requisições pequenas para evitar timeout 502`);
+    }
     
     let allData: T[] = [];
     let offset = 0;
@@ -107,42 +115,56 @@ class ApiService {
     while (pageCount < maxTotalPages && consecutiveEmptyPages < maxConsecutiveEmptyPages) {
       try {
         pageCount++;
-        console.log(`[ApiService] Buscando página ${pageCount} (offset: ${offset}, limit: ${pageSize})`);
+        if (this.debugMode) {
+          console.log(`[ApiService] Buscando página ${pageCount} (offset: ${offset}, limit: ${pageSize})`);
+        }
         const params = this.buildQueryParams({ limit: pageSize, offset });
         const response: ApiResponse<T> = await this.request<ApiResponse<T>>(`${endpoint}${params}`);
         
         const data = response.dados || response.data || [];
-        console.log(`[ApiService] ===== PÁGINA ${pageCount} =====`);
-        console.log(`[ApiService] Offset solicitado: ${offset}`);
-        console.log(`[ApiService] Limit solicitado: ${pageSize}`);
-        console.log(`[ApiService] Registros recebidos: ${data.length}`);
-        console.log(`[ApiService] Total registros (resposta): ${response.total_registros}`);
-        console.log(`[ApiService] Fonte: ${response.fonte}`);
-        console.log(`[ApiService] Primeiro item:`, data[0] ? Object.keys(data[0]).slice(0, 3) : 'nenhum');
-        console.log(`[ApiService] ========================`);
+        if (this.debugMode) {
+          console.log(`[ApiService] ===== PÁGINA ${pageCount} =====`);
+          console.log(`[ApiService] Offset solicitado: ${offset}`);
+          console.log(`[ApiService] Limit solicitado: ${pageSize}`);
+          console.log(`[ApiService] Registros recebidos: ${data.length}`);
+          console.log(`[ApiService] Total registros (resposta): ${response.total_registros}`);
+          console.log(`[ApiService] Fonte: ${response.fonte}`);
+          console.log(`[ApiService] Primeiro item:`, data[0] ? Object.keys(data[0]).slice(0, 3) : 'nenhum');
+          console.log(`[ApiService] ========================`);
+        }
 
         if (data.length === 0) {
           consecutiveEmptyPages++;
-          console.warn(`[ApiService] ⚠️ Página ${pageCount} VAZIA! (${consecutiveEmptyPages}/${maxConsecutiveEmptyPages} vazias consecutivas)`);
+          if (this.debugMode) {
+            console.warn(`[ApiService] ⚠️ Página ${pageCount} VAZIA! (${consecutiveEmptyPages}/${maxConsecutiveEmptyPages} vazias consecutivas)`);
+          }
           
           if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
-            console.error(`[ApiService] ❌ Finalizando paginação - ${consecutiveEmptyPages} páginas vazias consecutivas`);
+            if (this.debugMode) {
+              console.log(`[ApiService] ❌ Finalizando paginação - ${consecutiveEmptyPages} páginas vazias consecutivas`);
+            }
             break;
           } else {
-            console.log(`[ApiService] ↪️ Tentando próxima página mesmo com página vazia...`);
+            if (this.debugMode) {
+              console.log(`[ApiService] ↪️ Tentando próxima página mesmo com página vazia...`);
+            }
           }
         } else {
           consecutiveEmptyPages = 0; // Reset contador de páginas vazias
           const tamAnterior = allData.length;
           allData = allData.concat(data);
-          console.log(`[ApiService] ✅ Página ${pageCount}: +${data.length} registros (${tamAnterior} → ${allData.length})`);
+          if (this.debugMode) {
+            console.log(`[ApiService] ✅ Página ${pageCount}: +${data.length} registros (${tamAnterior} → ${allData.length})`);
+          }
           
           // IMPORTANTE: Continue mesmo se retornou menos que pageSize
           // Pode haver mais dados em offsets maiores
-          if (data.length < pageSize) {
-            console.log(`[ApiService] ⚠️ Página incompleta (${data.length} < ${pageSize}) - MAS continuando para verificar...`);
-          } else {
-            console.log(`[ApiService] ➡️ Página completa! Buscando próxima...`);
+          if (this.debugMode) {
+            if (data.length < pageSize) {
+              console.log(`[ApiService] ⚠️ Página incompleta (${data.length} < ${pageSize}) - MAS continuando para verificar...`);
+            } else {
+              console.log(`[ApiService] ➡️ Página completa! Buscando próxima...`);
+            }
           }
         }
         
@@ -150,28 +172,32 @@ class ApiService {
         offset += pageSize;
         
       } catch (error) {
-        console.error(`[ApiService] Erro na paginação manual (página ${pageCount}, offset ${offset}):`, error);
+        // Silencioso em produção - não logar erros esperados
+        if (this.debugMode) {
+          console.warn(`[ApiService] Erro na paginação (página ${pageCount}):`, error);
+        }
         consecutiveEmptyPages++;
         
         if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
-          console.error(`[ApiService] Muitos erros consecutivos, finalizando paginação`);
+          // Finaliza silenciosamente
           break;
         } else {
-          console.warn(`[ApiService] Continuando para próxima página apesar do erro...`);
           offset += pageSize;
         }
       }
     }
 
-    if (pageCount >= maxTotalPages) {
+    if (pageCount >= maxTotalPages && this.debugMode) {
       console.warn(`[ApiService] Limite máximo de páginas atingido (${maxTotalPages}), finalizando paginação`);
     }
 
-    console.log(`[ApiService] ✅ ===== PAGINAÇÃO CONCLUÍDA =====`);
-    console.log(`[ApiService] ✅ Total de páginas buscadas: ${pageCount}`);
-    console.log(`[ApiService] ✅ Total de registros obtidos: ${allData.length}`);
-    console.log(`[ApiService] ✅ Endpoint: ${endpoint}`);
-    console.log(`[ApiService] ✅ ================================`);
+    if (this.debugMode) {
+      console.log(`[ApiService] ✅ ===== PAGINAÇÃO CONCLUÍDA =====`);
+      console.log(`[ApiService] ✅ Total de páginas buscadas: ${pageCount}`);
+      console.log(`[ApiService] ✅ Total de registros obtidos: ${allData.length}`);
+      console.log(`[ApiService] ✅ Endpoint: ${endpoint}`);
+      console.log(`[ApiService] ✅ ================================`);
+    }
     
     return {
       total_registros: allData.length,
@@ -185,16 +211,22 @@ class ApiService {
   // Eles precisam buscar TODOS os dados primeiro, processar, e ENTÃO retornar
   // NÃO podemos paginar a requisição pois o backend faz a agregação no conjunto completo
   private async fetchAllCustomData<T>(endpoint: string): Promise<T> {
-    console.log(`[ApiService] 📊 Buscando dados agregados/processados de ${endpoint}`);
-    console.log(`[ApiService] ⚠️ Endpoints de agregação devem processar todos os dados - pode demorar`);
+    if (this.debugMode) {
+      console.log(`[ApiService] 📊 Buscando dados agregados/processados de ${endpoint}`);
+      console.log(`[ApiService] ⚠️ Endpoints de agregação devem processar todos os dados - pode demorar`);
+    }
     
     try {
       // Chamar SEM paginação - deixa o backend processar todos os dados
       const response = await this.request<T>(endpoint);
-      console.log(`[ApiService] ✅ Dados agregados obtidos com sucesso de ${endpoint}`);
+      if (this.debugMode) {
+        console.log(`[ApiService] ✅ Dados agregados obtidos com sucesso de ${endpoint}`);
+      }
       return response;
     } catch (error) {
-      console.error(`[ApiService] ❌ Erro ao buscar dados agregados de ${endpoint}:`, error);
+      if (this.debugMode) {
+        console.error(`[ApiService] ❌ Erro ao buscar dados agregados de ${endpoint}:`, error);
+      }
       throw error;
     }
   }
