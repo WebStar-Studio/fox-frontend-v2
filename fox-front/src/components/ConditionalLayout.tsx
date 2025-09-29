@@ -12,12 +12,14 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuth();
 
-  // Rotas que não devem mostrar o sidebar
+  // Rotas que não devem mostrar o sidebar via ConditionalLayout
   const authRoutes = ['/login', '/register'];
   const clientRoutes = ['/client-dashboard'];
+  const companyRoutes = ['/company-dashboard'];
   
   const isAuthRoute = authRoutes.includes(pathname);
   const isClientRoute = clientRoutes.includes(pathname);
+  const isCompanyRoute = companyRoutes.includes(pathname);
 
   // Se for rota de autenticação, mostrar apenas o conteúdo
   if (isAuthRoute) {
@@ -26,6 +28,11 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
 
   // Se for rota de cliente, mostrar layout simplificado
   if (isClientRoute) {
+    return <>{children}</>;
+  }
+
+  // Se for rota de empresa, mostrar layout simplificado (sidebar já incluída na página)
+  if (isCompanyRoute) {
     return <>{children}</>;
   }
 

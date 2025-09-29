@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginCredentials } from '@/types';
 import { Eye, EyeOff, Loader2, Mail, Lock, LogIn } from 'lucide-react';
@@ -33,6 +32,8 @@ export default function LoginPage() {
         // Redirecionar baseado no role do usuário
         if (response.user.role === 'admin') {
           router.push('/');
+        } else if (response.user.role === 'company') {
+          router.push('/company-dashboard');
         } else {
           router.push('/client-dashboard');
         }
@@ -57,16 +58,10 @@ export default function LoginPage() {
             <LogIn className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
+            Fox Delivery System
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link
-              href="/register"
-              className="font-medium text-[#001B38] hover:text-[#002855] transition-colors"
-            >
-              create a new account
-            </Link>
+            Sign in to your account
           </p>
         </div>
         
@@ -166,13 +161,7 @@ export default function LoginPage() {
 
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              Having trouble signing in?{' '}
-              <Link
-                href="/register"
-                className="font-medium text-[#001B38] hover:text-[#002855] transition-colors"
-              >
-                Create account
-              </Link>
+              Contact your administrator to create an account
             </p>
           </div>
         </form>

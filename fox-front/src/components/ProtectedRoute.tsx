@@ -55,8 +55,8 @@ export function ProtectedRoute({
     if (requiredRole && user && user.role !== requiredRole) {
       console.log(`[ProtectedRoute] Wrong role. Required: ${requiredRole}, Current: ${user.role}`);
       // Redirecionar baseado no role atual
-      if (user.role === 'client') {
-        router.push('/client-dashboard');
+      if (user.role === 'company') {
+        router.push('/company-dashboard');
       } else if (user.role === 'admin') {
         router.push('/');
       } else {
@@ -103,10 +103,10 @@ export function AdminRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Componente específico para rotas de cliente
-export function ClientRoute({ children }: { children: React.ReactNode }) {
+// Componente específico para rotas de empresa
+export function CompanyRoute({ children }: { children: React.ReactNode }) {
   return (
-    <ProtectedRoute requiredRole="client">
+    <ProtectedRoute requiredRole="company">
       {children}
     </ProtectedRoute>
   );

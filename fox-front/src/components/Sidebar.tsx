@@ -12,6 +12,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { SidebarItem } from "@/types";
+import { CompanySidebar } from "./CompanySidebar";
 
 const sidebarItems: SidebarItem[] = [
   {
@@ -46,7 +47,11 @@ const sidebarItems: SidebarItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, isCompany } = useAuth();
+
+  if (isCompany) {
+    return <CompanySidebar />;
+  }
 
   const handleLogout = async () => {
     await logout();

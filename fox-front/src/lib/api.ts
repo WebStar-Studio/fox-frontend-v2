@@ -1,4 +1,4 @@
-import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse } from '@/types';
+import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse, EmpresaMetricasDetalhadas } from '@/types';
 
 const API_BASE_URL = 'http://127.0.0.1:5000';
 
@@ -389,8 +389,8 @@ class ApiService {
     return this.request(`/dados-banco${params}`);
   }
 
-  // Método para obter métricas de empresa específica (usa fetch_all=True no backend)
-  async getEmpresaMetricasEspecifica(nomeEmpresa: string) {
+  // Método para obter métricas detalhadas de empresa específica (usa fetch_all=True no backend)
+  async getEmpresaMetricasEspecifica(nomeEmpresa: string): Promise<{ sucesso: boolean; fonte: string; metricas: EmpresaMetricasDetalhadas }> {
     try {
       const params = this.buildQueryParams({ all: true });
       const endpoint = `/empresa-metricas?empresa=${encodeURIComponent(nomeEmpresa)}${params ? '&' + params.substring(1) : ''}`;

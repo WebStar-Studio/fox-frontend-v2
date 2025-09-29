@@ -195,6 +195,41 @@ export interface EmpresaMetricas {
   total_entregas: number;
 }
 
+// Tipo para métricas detalhadas de uma empresa específica (endpoint /empresa-metricas)
+export interface EmpresaMetricasDetalhadas {
+  empresa: string;
+  total_deliveries: number;
+  collection_time: {
+    media_minutos: number | null;
+    minimo_minutos: number | null;
+    maximo_minutos: number | null;
+    amostras_validas: number;
+  };
+  delivery_time: {
+    media_minutos: number | null;
+    minimo_minutos: number | null;
+    maximo_minutos: number | null;
+    amostras_validas: number;
+  };
+  customer_experience: {
+    media_minutos: number | null;
+    minimo_minutos: number | null;
+    maximo_minutos: number | null;
+    amostras_validas: number;
+  };
+  delayed_orders: {
+    total: number;
+    percentual: number;
+    criterio: string;
+    total_com_metricas: number;
+  };
+  resumo_performance: {
+    pedidos_analisados: number;
+    pedidos_com_metricas_completas: number;
+    taxa_sucesso_metricas: number;
+  };
+}
+
 export interface EmpresasResponse {
   total_empresas: number;
   total_pedidos: number;
@@ -273,13 +308,14 @@ export interface AnaliseTemporalResponse {
 
 // ========== TIPOS DE AUTENTICAÇÃO ==========
 
-export type UserRole = 'admin' | 'client';
+export type UserRole = 'admin' | 'client' | 'company';
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  company_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -289,6 +325,7 @@ export interface AuthUser {
   email: string;
   name: string;
   role: UserRole;
+  company_name?: string;
 }
 
 export interface LoginCredentials {
@@ -300,7 +337,8 @@ export interface RegisterCredentials {
   email: string;
   password: string;
   name: string;
-  role?: UserRole; // Opcional, padrão será 'client'
+  role?: UserRole;
+  company_name?: string; // Obrigatório apenas para role 'company'
 }
 
 export interface AuthResponse {
@@ -317,6 +355,13 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isClient: boolean;
+  isCompany: boolean;
+}
+
+// Tipo para lista de empresas disponíveis
+export interface AvailableCompany {
+  company_name: string;
+  total_deliveries: number;
 }
 
 // Permissões específicas por role
@@ -354,6 +399,23 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
       'customer_experience',
       'top_peak_hours',
       'delivery_completion_status'
+    ]
+  },
+  company: {
+    canViewFullDashboard: false,
+    canViewDrivers: false,
+    canViewCompanies: false,
+    canViewAnalytics: false,
+    canUploadData: false,
+    canManageUsers: false,
+    allowedMetrics: [
+      'total_deliveries',
+      'collection_time',
+      'avg_time',
+      'customer_experience',
+      'top_peak_hours',
+      'delivery_completion_status',
+      'company_metrics'
     ]
   }
 }; 

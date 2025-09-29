@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { AuthUser, LoginCredentials, RegisterCredentials, AuthResponse, User } from '@/types';
+import { AuthUser, LoginCredentials, RegisterCredentials, AuthResponse, User, AvailableCompany } from '@/types';
 
 // Configurações do Supabase - Fox Delivery System
 const supabaseUrl = 'https://mqjzleuzlnzxkhkbmnhr.supabase.co';
@@ -69,6 +69,7 @@ export class AuthService {
           email: data.user.email!,
           name: data.user.user_metadata?.name || 'User',
           role: data.user.user_metadata?.role || 'client',
+          company_name: data.user.user_metadata?.company_name,
         };
         return { user: authUser };
       }
@@ -80,6 +81,7 @@ export class AuthService {
         email: credentials.email,
         name: profile.name,
         role: profile.role,
+        company_name: profile.company_name,
       };
 
       return { user: authUser };
@@ -192,6 +194,7 @@ export class AuthService {
                   email: parsed.user.email,
                   name: parsed.user.user_metadata?.name || 'User',
                   role: parsed.user.user_metadata?.role || 'client',
+                  company_name: parsed.user.user_metadata?.company_name,
                 };
               }
             } catch (e) {
@@ -244,6 +247,7 @@ export class AuthService {
           email: profile.email || session.user.email!,
           name: profile.name,
           role: profile.role,
+          company_name: profile.company_name,
         };
       } else {
         console.log('[getCurrentUser] Using session metadata as fallback');
@@ -252,6 +256,7 @@ export class AuthService {
           email: session.user.email!,
           name: session.user.user_metadata?.name || 'User',
           role: session.user.user_metadata?.role || 'client',
+          company_name: session.user.user_metadata?.company_name,
         };
       }
     } catch (error) {
@@ -420,6 +425,115 @@ export class AuthService {
       // Por enquanto, apenas excluímos o perfil
     } catch (error) {
       console.error('❌ Error deleting user:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Criar uma conta de empresa (apenas para administradores)
+   */
+  async createCompanyAccount(credentials: RegisterCredentials): Promise<AuthResponse> {
+    try {
+      console.log('🏢 AuthService.createCompanyAccount chamado com:', { ...credentials, password: '[HIDDEN]' });
+
+      if (!credentials.company_name) {
+        return { user: null, error: 'Nome da empresa é obrigatório' };
+      }
+      
+      // Criar o usuário na autenticação com metadata incluindo role e company
+      const { data, error } = await supabase.auth.signUp({
+        email: credentials.email,
+        password: credentials.password,
+        options: {
+          data: {
+            name: credentials.name,
+            role: 'company',
+            company_name: credentials.company_name,
+          },
+        },
+      });
+
+      console.log('📡 Resposta do supabase.auth.signUp:', { data: data?.user?.id, error: error?.message });
+
+      if (error) {
+        console.log('❌ Erro no signUp:', error.message);
+        return { user: null, error: error.message };
+      }
+
+      if (!data.user) {
+        console.log('❌ Usuário não criado');
+        return { user: null, error: 'Failed to create user' };
+      }
+
+      console.log('✅ Usuário criado na auth, ID:', data.user.id);
+
+      // Aguardar um pouco para o trigger processar
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Atualizar o perfil com role company, email e empresa
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({
+          name: credentials.name,
+          role: 'company',
+          email: credentials.email,
+          company_name: credentials.company_name,
+        })
+        .eq('id', data.user.id);
+
+      if (updateError) {
+        console.log('❌ Erro ao atualizar perfil:', updateError.message);
+        // Tentar criar o perfil se não existir
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: data.user.id,
+            name: credentials.name,
+            role: 'company',
+            email: credentials.email,
+            company_name: credentials.company_name,
+          });
+        
+        if (insertError) {
+          console.log('❌ Erro ao criar perfil:', insertError.message);
+          return { user: null, error: `Falha ao criar perfil: ${insertError.message}` };
+        }
+      }
+
+      console.log('✅ Perfil de empresa criado/atualizado com sucesso!');
+
+      const authUser: AuthUser = {
+        id: data.user.id,
+        email: credentials.email,
+        name: credentials.name,
+        role: 'company',
+        company_name: credentials.company_name,
+      };
+
+      return { user: authUser };
+    } catch (error) {
+      console.error('Error creating company account:', error);
+      return { user: null, error: 'Failed to create company account' };
+    }
+  }
+
+  /**
+   * Obter lista de empresas disponíveis
+   */
+  async getAvailableCompanies(): Promise<AvailableCompany[]> {
+    try {
+      console.log('🏢 Buscando empresas disponíveis via RPC...');
+      const { data, error } = await supabase.rpc('get_available_companies');
+      
+      if (error) {
+        console.error('❌ Erro na RPC get_available_companies:', error);
+        throw error;
+      }
+
+      console.log('✅ Empresas obtidas via RPC:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error in getAvailableCompanies:', error);
       throw error;
     }
   }

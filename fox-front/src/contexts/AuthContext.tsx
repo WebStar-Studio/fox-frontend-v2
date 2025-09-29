@@ -126,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
     isClient: user?.role === 'client',
+    isCompany: user?.role === 'company',
   };
 
   return (
@@ -145,7 +146,7 @@ export function useAuth(): AuthContextType {
 
 // Hook para verificar permissões
 export function usePermissions() {
-  const { user, isAdmin, isClient } = useAuth();
+  const { user, isAdmin, isClient, isCompany } = useAuth();
   
   const permissions = user ? ROLE_PERMISSIONS[user.role] : null;
   
@@ -165,5 +166,6 @@ export function usePermissions() {
     canViewMetric,
     isAdmin,
     isClient,
+    isCompany,
   };
 }
