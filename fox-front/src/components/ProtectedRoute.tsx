@@ -111,3 +111,12 @@ export function CompanyRoute({ children }: { children: React.ReactNode }) {
     </ProtectedRoute>
   );
 }
+
+// Componente específico para rotas de cliente (mantido para compatibilidade)
+export function ClientRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute requireAuth>
+      {children}
+    </ProtectedRoute>
+  );
+}

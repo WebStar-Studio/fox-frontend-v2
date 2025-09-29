@@ -233,7 +233,9 @@ class ApiService {
 
   // Função forçada para buscar TODOS os dados - mais agressiva
   private async forceGetAllData<T>(endpoint: string): Promise<ApiResponse<T>> {
-    console.log(`[ApiService] MODO FORÇADO: Buscando absolutamente todos os dados para ${endpoint}`);
+    if (this.debugMode) {
+      console.log(`[ApiService] MODO FORÇADO: Buscando absolutamente todos os dados para ${endpoint}`);
+    }
     
     let allData: T[] = [];
     let offset = 0;
@@ -248,7 +250,9 @@ class ApiService {
       pageCount++;
       
       try {
-        console.log(`[ApiService] FORÇA - Página ${pageCount}/${maxPages} (offset: ${offset})`);
+        if (this.debugMode) {
+          console.log(`[ApiService] FORÇA - Página ${pageCount}/${maxPages} (offset: ${offset})`);
+        }
         const params = this.buildQueryParams({ limit: pageSize, offset });
         const response: ApiResponse<T> = await this.request<ApiResponse<T>>(`${endpoint}${params}`);
         
@@ -257,10 +261,14 @@ class ApiService {
         if (data.length > 0) {
           allData = allData.concat(data);
           emptyPagesInARow = 0; // Reset
-          console.log(`[ApiService] FORÇA - Página ${pageCount}: +${data.length} registros (total: ${allData.length})`);
+          if (this.debugMode) {
+            console.log(`[ApiService] FORÇA - Página ${pageCount}: +${data.length} registros (total: ${allData.length})`);
+          }
         } else {
           emptyPagesInARow++;
-          console.log(`[ApiService] FORÇA - Página ${pageCount}: vazia (${emptyPagesInARow}/${maxEmptyPages} vazias)`);
+          if (this.debugMode) {
+            console.log(`[ApiService] FORÇA - Página ${pageCount}: vazia (${emptyPagesInARow}/${maxEmptyPages} vazias)`);
+          }
         }
         
         offset += pageSize;
@@ -277,7 +285,9 @@ class ApiService {
       }
     }
     
-    console.log(`[ApiService] MODO FORÇADO concluído: ${allData.length} registros total em ${pageCount} páginas verificadas`);
+    if (this.debugMode) {
+      console.log(`[ApiService] MODO FORÇADO concluído: ${allData.length} registros total em ${pageCount} páginas verificadas`);
+    }
     
     return {
       total_registros: allData.length,
@@ -331,8 +341,10 @@ class ApiService {
   async getMetricasResumoBanco(): Promise<MetricasResumo> {
     // CRÍTICO: Este endpoint calcula métricas de TODOS os dados
     // Backend usa fetch_all=True internamente para cálculos corretos
-    console.log(`[ApiService] 📊 Buscando métricas resumo de TODOS os dados do banco`);
-    console.log(`[ApiService] ⏳ Aguarde - processando todos os registros...`);
+    if (this.debugMode) {
+      console.log(`[ApiService] 📊 Buscando métricas resumo de TODOS os dados do banco`);
+      console.log(`[ApiService] ⏳ Aguarde - processando todos os registros...`);
+    }
     return this.request('/metricas-resumo-banco');
   }
 
@@ -399,24 +411,32 @@ class ApiService {
   // Métodos públicos para forçar busca completa (paginação manual mais agressiva)
   // Use apenas se necessário - já é o comportamento padrão
   async forceGetAllDadosBanco(): Promise<ApiResponse<DeliveryRecord>> {
-    console.log(`[ApiService] ⚡ Busca forçada e agressiva de todos os dados do banco`);
+    if (this.debugMode) {
+      console.log(`[ApiService] ⚡ Busca forçada e agressiva de todos os dados do banco`);
+    }
     return await this.forceGetAllData<DeliveryRecord>('/dados-banco');
   }
 
   async forceGetAllDadosHibrido(): Promise<ApiResponse<DeliveryRecord>> {
-    console.log(`[ApiService] ⚡ Busca forçada e agressiva de todos os dados híbridos`);
+    if (this.debugMode) {
+      console.log(`[ApiService] ⚡ Busca forçada e agressiva de todos os dados híbridos`);
+    }
     return await this.forceGetAllData<DeliveryRecord>('/dados-hibrido');
   }
 
   async forceGetAllDadosComMetricas(): Promise<ApiResponse<DeliveryRecord>> {
-    console.log(`[ApiService] ⚡ Busca forçada e agressiva de todos os dados com métricas`);
+    if (this.debugMode) {
+      console.log(`[ApiService] ⚡ Busca forçada e agressiva de todos os dados com métricas`);
+    }
     return await this.forceGetAllData<DeliveryRecord>('/dados-banco-com-metricas');
   }
 
   // APENAS PARA DESENVOLVIMENTO/DEBUGGING
   // NÃO usar em produção - causa timeout com muitos dados
   async getDadosBancoWithAllFlag(): Promise<ApiResponse<DeliveryRecord>> {
-    console.warn(`[ApiService] 🚨 ATENÇÃO: Usando 'all=true' - pode causar timeout em produção!`);
+    if (this.debugMode) {
+      console.warn(`[ApiService] 🚨 ATENÇÃO: Usando 'all=true' - pode causar timeout em produção!`);
+    }
     const params = this.buildQueryParams({ all: true });
     return this.request(`/dados-banco${params}`);
   }
