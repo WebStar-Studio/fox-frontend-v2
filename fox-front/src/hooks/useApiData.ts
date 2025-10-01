@@ -1,6 +1,80 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/lib/api';
-import { DeliveryRecord, MetricasResumo, ApiResponse, StatusBanco, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse } from '@/types';
+import { DeliveryRecord, MetricasResumo, DashboardMetrics, ApiResponse, StatusBanco, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse } from '@/types';
+
+// Função helper para converter DashboardMetrics para formato legado (se necessário)
+function convertDashboardMetricsToLegacy(dashboardMetrics: DashboardMetrics): MetricasResumo {
+  return {
+    medias: {
+      "Collection Time (minutos)": dashboardMetrics.metrics.collection_time.value,
+      "Delivery Time (minutos)": dashboardMetrics.metrics.average_delivery_time.value,
+      "Customer Experience (minutos)": dashboardMetrics.metrics.customer_experience.value
+    },
+    metricas_principais: {
+      "Total Courier Commission": dashboardMetrics.metrics.total_courier_commission.value,
+      "Active Drivers": dashboardMetrics.metrics.active_drivers.value,
+      "Total Deliveries": dashboardMetrics.metrics.total_deliveries.value,
+      "Total Distance": dashboardMetrics.metrics.total_distance.value,
+      "Average Distance per Delivery": 0 // Não disponível no novo formato
+    },
+    estatisticas_detalhadas: {
+      "Collection Time": {
+        media: dashboardMetrics.metrics.collection_time.value,
+        minimo: null,
+        maximo: null,
+        amostras: dashboardMetrics.metrics.collection_time.samples
+      },
+      "Delivery Time": {
+        media: dashboardMetrics.metrics.average_delivery_time.value,
+        minimo: null,
+        maximo: null,
+        amostras: dashboardMetrics.metrics.average_delivery_time.samples
+      },
+      "Customer Experience": {
+        media: dashboardMetrics.metrics.customer_experience.value,
+        minimo: null,
+        maximo: null,
+        amostras: dashboardMetrics.metrics.customer_experience.samples
+      },
+      Revenue: {
+        total: 0,
+        media_por_entrega: 0,
+        minimo: null,
+        maximo: null,
+        entregas_com_custo: 0
+      },
+      Drivers: {
+        total_ativos: dashboardMetrics.metrics.active_drivers.value,
+        lista_drivers: [],
+        entregas_por_driver: 0
+      }
+    },
+    analise_status: {
+      resumo_percentual: {
+        entregas_concluidas: dashboardMetrics.metrics.delivery_completion_status.value,
+        entregas_canceladas: 0,
+        outros_status: 0
+      },
+      resumo_quantitativo: {
+        total_entregas: dashboardMetrics.metrics.total_deliveries.value,
+        entregas_concluidas: dashboardMetrics.metrics.delivery_completion_status.completed,
+        entregas_canceladas: 0,
+        outros_status: 0
+      },
+      taxa_sucesso: {
+        percentual: dashboardMetrics.metrics.delivery_completion_status.value,
+        descricao: `${dashboardMetrics.metrics.delivery_completion_status.completed} de ${dashboardMetrics.metrics.delivery_completion_status.total} entregas foram concluídas com sucesso`
+      },
+      detalhamento_status: {}
+    },
+    resumo_processamento: {
+      total_linhas: dashboardMetrics.metadata.total_records_database,
+      linhas_processadas: dashboardMetrics.metadata.total_records_analyzed,
+      linhas_com_erro: 0,
+      fonte: "banco_de_dados"
+    }
+  };
+}
 
 /*
  * ✅ CORREÇÃO: Problema de erro 404 após upload
@@ -91,13 +165,17 @@ export function useMetricasResumo() {
   });
 }
 
-// Hook para obter métricas resumo do banco
+// Hook para obter métricas resumo do banco (NOVO FORMATO OTIMIZADO)
 export function useMetricasResumoBanco() {
   const statusBanco = useStatusBanco();
   
   return useQuery({
     queryKey: [QUERY_KEYS.metricasResumoBanco],
-    queryFn: () => apiService.getMetricasResumoBanco(),
+    queryFn: async () => {
+      const dashboardMetrics = await apiService.getMetricasResumoBanco();
+      // Converter para formato legado para compatibilidade com código existente
+      return convertDashboardMetricsToLegacy(dashboardMetrics);
+    },
     staleTime: 5 * 60 * 1000,
     retry: (failureCount, error) => {
       // Retry mais inteligente após upload
@@ -109,6 +187,26 @@ export function useMetricasResumoBanco() {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000), // Delay exponencial até 3s
     // Não tentar buscar métricas se o banco está vazio
+    enabled: (statusBanco.data as StatusBanco)?.total_registros_banco > 0,
+  });
+}
+
+// Hook para obter métricas no NOVO formato (DashboardMetrics)
+export function useDashboardMetrics() {
+  const statusBanco = useStatusBanco();
+  
+  return useQuery({
+    queryKey: ['dashboard-metrics'],
+    queryFn: () => apiService.getDashboardMetrics(),
+    staleTime: 5 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (failureCount < 3 && error?.message?.includes('404')) {
+        console.log(`🔄 Retry ${failureCount + 1}/3 para dashboard metrics (404 - dados sendo processados)`);
+        return true;
+      }
+      return failureCount < 1;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
     enabled: (statusBanco.data as StatusBanco)?.total_registros_banco > 0,
   });
 }

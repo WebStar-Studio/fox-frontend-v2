@@ -64,6 +64,82 @@ export interface DeliveryRecord {
   customer_experience_minutes?: number;
 }
 
+// NOVO FORMATO OTIMIZADO - Dashboard Metrics (retornado por /metricas-resumo-banco e /dashboard-metrics)
+export interface DashboardMetrics {
+  success: boolean;
+  timestamp: string;
+  metrics: {
+    total_deliveries: {
+      value: number;
+      label: string;
+      description: string;
+    };
+    customer_experience: {
+      value: number;
+      unit: string;
+      label: string;
+      description: string;
+      samples: number;
+    };
+    collection_time: {
+      value: number;
+      unit: string;
+      label: string;
+      description: string;
+      samples: number;
+    };
+    average_delivery_time: {
+      value: number;
+      unit: string;
+      label: string;
+      description: string;
+      samples: number;
+    };
+    total_courier_commission: {
+      value: number;
+      unit: string;
+      label: string;
+      description: string;
+    };
+    active_drivers: {
+      value: number;
+      label: string;
+      description: string;
+    };
+    active_companies: {
+      value: number;
+      label: string;
+      description: string;
+    };
+    total_distance: {
+      value: number;
+      unit: string;
+      label: string;
+      description: string;
+    };
+    delivery_completion_status: {
+      value: number;
+      unit: string;
+      label: string;
+      description: string;
+      completed: number;
+      total: number;
+    };
+  };
+  top_5_drivers: Array<{
+    rank: number;
+    name: string;
+    deliveries: number;
+  }>;
+  metadata: {
+    total_records_analyzed: number;
+    total_records_database: number;
+    calculation_method: string;
+    note: string;
+  };
+}
+
+// FORMATO LEGADO (mantido para compatibilidade)
 export interface MetricasResumo {
   medias: {
     "Collection Time (minutos)": number | null;

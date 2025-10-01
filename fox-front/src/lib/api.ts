@@ -1,6 +1,6 @@
-import { DeliveryRecord, MetricasResumo, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse, EmpresaMetricasDetalhadas } from '@/types';
+import { DeliveryRecord, MetricasResumo, DashboardMetrics, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse, EmpresaMetricasDetalhadas } from '@/types';
 
-const API_BASE_URL = 'http://127.0.0.1:5000';
+const API_BASE_URL = 'https://fox-backend-lkbb.onrender.com';
 
 /**
  * ESTRATÉGIA DE PAGINAÇÃO PARA EVITAR TIMEOUTS EM PRODUÇÃO:
@@ -338,14 +338,24 @@ class ApiService {
     return this.request('/metricas-resumo');
   }
 
-  async getMetricasResumoBanco(): Promise<MetricasResumo> {
-    // CRÍTICO: Este endpoint calcula métricas de TODOS os dados
-    // Backend usa fetch_all=True internamente para cálculos corretos
+  async getMetricasResumoBanco(): Promise<DashboardMetrics> {
+    // OTIMIZADO: Este endpoint agora retorna apenas métricas calculadas (formato compacto)
+    // Backend busca dados com paginação interna otimizada (até 5000 registros)
+    // Total Deliveries é sempre exato via COUNT(*)
     if (this.debugMode) {
-      console.log(`[ApiService] 📊 Buscando métricas resumo de TODOS os dados do banco`);
-      console.log(`[ApiService] ⏳ Aguarde - processando todos os registros...`);
+      console.log(`[ApiService] 📊 Buscando métricas resumo do banco (formato otimizado)`);
+      console.log(`[ApiService] ⚡ Resposta rápida - apenas métricas calculadas`);
     }
     return this.request('/metricas-resumo-banco');
+  }
+
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    // NOVO ENDPOINT: Retorna métricas otimizadas para dashboard
+    // Mesmo formato que getMetricasResumoBanco()
+    if (this.debugMode) {
+      console.log(`[ApiService] 🎯 Buscando dashboard metrics otimizado`);
+    }
+    return this.request('/dashboard-metrics');
   }
 
   async getStatusBanco() {
