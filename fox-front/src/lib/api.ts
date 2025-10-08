@@ -1,6 +1,6 @@
 import { DeliveryRecord, MetricasResumo, DashboardMetrics, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse, EmpresaMetricasDetalhadas } from '@/types';
 
-const API_BASE_URL = 'https://fox-backend-lkbb.onrender.com';
+const API_BASE_URL = 'http://178.156.150.166:5000';
 
 /**
  * ESTRATÉGIA DE PAGINAÇÃO PARA EVITAR TIMEOUTS EM PRODUÇÃO:
@@ -47,16 +47,24 @@ class ApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    // Timeout de 2 minutos para endpoints pesados (métricas, análise temporal, etc.)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000); // 120 segundos
+    
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      // Forçar reload sem cache (funciona sem headers customizados)
+      cache: 'no-store',
+      signal: controller.signal,
       ...options,
     };
 
     try {
       const response = await fetch(url, config);
+      clearTimeout(timeout);
       
       if (!response.ok) {
         // Melhor tratamento para diferentes tipos de erro
@@ -73,7 +81,17 @@ class ApiService {
       
       const data = await response.json();
       return data;
-    } catch (error) {
+    } catch (error: any) {
+      clearTimeout(timeout);
+      
+      // Tratamento específico para timeout
+      if (error.name === 'AbortError') {
+        if (this.debugMode) {
+          console.error(`⏱️ TIMEOUT (${endpoint}): Requisição excedeu 120 segundos`);
+        }
+        throw new Error(`TIMEOUT: A requisição demorou muito (>2 min). Tente novamente ou contate o suporte.`);
+      }
+      
       // Apenas logar erros críticos em produção
       if (this.debugMode) {
         console.error(`API Error (${endpoint}):`, error);
@@ -339,23 +357,27 @@ class ApiService {
   }
 
   async getMetricasResumoBanco(): Promise<DashboardMetrics> {
-    // OTIMIZADO: Este endpoint agora retorna apenas métricas calculadas (formato compacto)
-    // Backend busca dados com paginação interna otimizada (até 5000 registros)
-    // Total Deliveries é sempre exato via COUNT(*)
+    // DOCKER MODE: Endpoint SEMPRE recalcula com 100% dos dados do banco
+    // Sem cache, sem limites - ideal para Docker
     if (this.debugMode) {
-      console.log(`[ApiService] 📊 Buscando métricas resumo do banco (formato otimizado)`);
-      console.log(`[ApiService] ⚡ Resposta rápida - apenas métricas calculadas`);
+      console.log(`[ApiService] 📊 Buscando métricas resumo do banco (100% dos dados, sem cache)`);
+      console.log(`[ApiService] 🔄 Recalculando em tempo real com todos os registros`);
     }
-    return this.request('/metricas-resumo-banco');
+    // Adiciona timestamp para evitar cache
+    const timestamp = new Date().getTime();
+    return this.request(`/metricas-resumo-banco?_t=${timestamp}`);
   }
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
-    // NOVO ENDPOINT: Retorna métricas otimizadas para dashboard
-    // Mesmo formato que getMetricasResumoBanco()
+    // DOCKER MODE: Endpoint SEMPRE recalcula com 100% dos dados do banco
+    // Sem cache, sem limites - ideal para Docker
     if (this.debugMode) {
-      console.log(`[ApiService] 🎯 Buscando dashboard metrics otimizado`);
+      console.log(`[ApiService] 🎯 Buscando dashboard metrics (100% dos dados, sem cache)`);
+      console.log(`[ApiService] 🔄 Recalculando em tempo real com todos os registros`);
     }
-    return this.request('/dashboard-metrics');
+    // Adiciona timestamp para evitar cache
+    const timestamp = new Date().getTime();
+    return this.request(`/dashboard-metrics?_t=${timestamp}`);
   }
 
   async getStatusBanco() {

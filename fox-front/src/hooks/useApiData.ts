@@ -303,19 +303,14 @@ export function useDashboardData() {
   const statusBanco = useStatusBanco();
   const statusData = statusBanco.data as StatusBanco;
   
-  // CRÍTICO: NÃO passar limit - undefined ativa paginação automática no frontend
-  // Se passar limit, getDadosBanco(limit) retorna só aquela quantidade SEM paginar
-  const dadosBanco = useDadosBanco(
-    undefined,
-    { enabled: statusData?.banco_conectado && statusData?.total_registros_banco > 0 }
-  );
+  // OTIMIZAÇÃO CRÍTICA: Dashboard NÃO precisa de dados brutos!
+  // Usa apenas endpoints de métricas agregadas (muito mais rápido)
   const metricasBanco = useMetricasResumoBanco();
   const entregadoresMetricas = useEntregadoresMetricas();
   const analiseTemporalMetricas = useAnaliseTemporalMetricas();
 
   // Usar APENAS dados do banco de dados (sem fallback para memória)
   const metricas = metricasBanco.data;
-  const dados = dadosBanco.data?.dados || dadosBanco.data?.data || [];
   const topDrivers = entregadoresMetricas.data?.entregadores || [];
   
   // Lógica melhorada para loading e error states
@@ -323,34 +318,31 @@ export function useDashboardData() {
   const isDatabaseEmpty = statusData?.banco_conectado && statusData?.total_registros_banco === 0;
   
   // Se o banco está vazio, não considerar como loading ou error
-  const isLoading = isStatusLoading || (!isDatabaseEmpty && (metricasBanco.isLoading || dadosBanco.isLoading || entregadoresMetricas.isLoading || analiseTemporalMetricas.isLoading));
+  // REMOVIDO dadosBanco.isLoading - não buscamos mais dados brutos!
+  const isLoading = isStatusLoading || (!isDatabaseEmpty && (metricasBanco.isLoading || entregadoresMetricas.isLoading || analiseTemporalMetricas.isLoading));
   
   // Só considerar erro se não for banco vazio e houver erro real de conexão
+  // REMOVIDO dadosBanco.error - não buscamos mais dados brutos!
   const hasConnectionError = !isDatabaseEmpty && (
     statusBanco.error || 
     (!statusData?.banco_conectado && !statusBanco.isLoading) ||
-    (statusData?.total_registros_banco > 0 && (metricasBanco.error || dadosBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error))
+    (statusData?.total_registros_banco > 0 && (metricasBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error))
   );
-  
-  // Calcular estatísticas de drivers apenas com dados do banco
-  const driverStats = dados.length > 0 ? apiService.getDriverStats(dados) : [];
-  const statusDistribution = dados.length > 0 ? apiService.getStatusDistribution(dados) : [];
 
   return {
     metricas,
-    dados,
-    driverStats,
-    statusDistribution,
+    dados: [], // Dashboard não precisa de dados brutos
+    driverStats: [], // Será calculado pelo backend se necessário
+    statusDistribution: [], // Será calculado pelo backend se necessário
     topDrivers,
     statusBanco: statusData,
     isLoading,
-    error: hasConnectionError ? (statusBanco.error || metricasBanco.error || dadosBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error) : null,
+    error: hasConnectionError ? (statusBanco.error || metricasBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error) : null,
     isDatabaseEmpty,
     refetch: () => {
       statusBanco.refetch();
       if (!isDatabaseEmpty) {
         metricasBanco.refetch();
-        dadosBanco.refetch();
         entregadoresMetricas.refetch();
         analiseTemporalMetricas.refetch();
       }
