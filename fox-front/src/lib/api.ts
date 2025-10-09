@@ -1,6 +1,6 @@
 import { DeliveryRecord, MetricasResumo, DashboardMetrics, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse, EmpresaMetricasDetalhadas } from '@/types';
 
-const API_BASE_URL = 'https://die-health-ssl-lawyers.trycloudflare.com';
+const API_BASE_URL = 'https://respondent-points-nuts-equivalent.trycloudflare.com';
 
 /**
  * ESTRATÉGIA DE PAGINAÇÃO PARA EVITAR TIMEOUTS EM PRODUÇÃO:
