@@ -348,6 +348,8 @@ export function useDashboardData() {
     driver_name: driver.name,
     total_deliveries: driver.deliveries,
     total_revenue: 0, // Não temos esse dado no top_5_drivers
+    success_rate: 0, // Não disponível no top_5_drivers do backend
+    average_delivery_time: 0, // Não disponível no top_5_drivers do backend
   }));
   
   return {
