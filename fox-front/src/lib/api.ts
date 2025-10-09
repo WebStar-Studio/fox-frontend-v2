@@ -1,6 +1,6 @@
 import { DeliveryRecord, MetricasResumo, DashboardMetrics, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse, EmpresaMetricasDetalhadas } from '@/types';
 
-const API_BASE_URL = 'http://178.156.202.182:5000';
+const API_BASE_URL = 'https://die-health-ssl-lawyers.trycloudflare.com ';
 
 /**
  * ESTRATÉGIA DE PAGINAÇÃO PARA EVITAR TIMEOUTS EM PRODUÇÃO:
@@ -56,8 +56,9 @@ class ApiService {
         'Content-Type': 'application/json',
         ...options.headers,
       },
-      // Forçar reload sem cache (funciona sem headers customizados)
-      cache: 'no-store',
+      // Usar cache do navegador para requisições GET (otimização)
+      // Backend já controla cache via headers HTTP + cache interno de 5min
+      cache: options.method === 'POST' || options.method === 'DELETE' ? 'no-store' : 'default',
       signal: controller.signal,
       ...options,
     };
@@ -357,27 +358,23 @@ class ApiService {
   }
 
   async getMetricasResumoBanco(): Promise<DashboardMetrics> {
-    // DOCKER MODE: Endpoint SEMPRE recalcula com 100% dos dados do banco
-    // Sem cache, sem limites - ideal para Docker
+    // Backend usa cache inteligente de 5 minutos (TTL automático)
+    // Cache é invalidado automaticamente após upload
     if (this.debugMode) {
-      console.log(`[ApiService] 📊 Buscando métricas resumo do banco (100% dos dados, sem cache)`);
-      console.log(`[ApiService] 🔄 Recalculando em tempo real com todos os registros`);
+      console.log(`[ApiService] 📊 Buscando métricas resumo do banco (com cache de 5min)`);
     }
-    // Adiciona timestamp para evitar cache
-    const timestamp = new Date().getTime();
-    return this.request(`/metricas-resumo-banco?_t=${timestamp}`);
+    // Permitir que o backend use cache - NÃO adicionar timestamp
+    return this.request(`/metricas-resumo-banco`);
   }
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
-    // DOCKER MODE: Endpoint SEMPRE recalcula com 100% dos dados do banco
-    // Sem cache, sem limites - ideal para Docker
+    // Backend usa cache inteligente de 5 minutos (TTL automático)
+    // Cache é invalidado automaticamente após upload
     if (this.debugMode) {
-      console.log(`[ApiService] 🎯 Buscando dashboard metrics (100% dos dados, sem cache)`);
-      console.log(`[ApiService] 🔄 Recalculando em tempo real com todos os registros`);
+      console.log(`[ApiService] 🎯 Buscando dashboard metrics (com cache de 5min)`);
     }
-    // Adiciona timestamp para evitar cache
-    const timestamp = new Date().getTime();
-    return this.request(`/dashboard-metrics?_t=${timestamp}`);
+    // Permitir que o backend use cache - NÃO adicionar timestamp
+    return this.request(`/dashboard-metrics`);
   }
 
   async getStatusBanco() {
@@ -388,17 +385,55 @@ class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${this.baseUrl}/upload`, {
-      method: 'POST',
-      body: formData,
-    });
+    // Timeout de 5 minutos para uploads de planilhas grandes (20k+ linhas)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000); // 300 segundos = 5 minutos
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.erro || errorData.detalhes || `Upload failed: ${response.status}`);
+    try {
+      if (this.debugMode) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        console.log(`📤 [UPLOAD] Iniciando upload: ${file.name} (${sizeMB} MB)`);
+        console.log(`⏱️ [UPLOAD] Timeout configurado: 5 minutos`);
+      }
+
+      const startTime = Date.now();
+      const response = await fetch(`${this.baseUrl}/upload`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (this.debugMode) {
+          console.error(`❌ [UPLOAD] Falhou após ${elapsed}s:`, errorData);
+        }
+        throw new Error(errorData.erro || errorData.detalhes || `Upload failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (this.debugMode) {
+        console.log(`✅ [UPLOAD] Concluído em ${elapsed}s`);
+        console.log(`📊 Processados: ${result.total_registros} | Novos: ${result.registros_inseridos} | Duplicatas: ${result.duplicatas_evitadas}`);
+      }
+
+      return result;
+    } catch (error: any) {
+      clearTimeout(timeout);
+      
+      if (error.name === 'AbortError') {
+        if (this.debugMode) {
+          console.error(`⏱️ TIMEOUT (upload): Upload excedeu 5 minutos`);
+        }
+        throw new Error(`Upload demorou muito (>5 min). A planilha pode ser muito grande. Tente dividir em partes menores.`);
+      }
+      
+      throw error;
     }
-
-    return response.json();
   }
 
   async limparBanco() {

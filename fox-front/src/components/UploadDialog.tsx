@@ -91,9 +91,16 @@ export function UploadDialog({ children }: UploadDialogProps) {
         <div className="space-y-4">
           {/* Status do upload */}
           {uploadMutation.isPending && (
-            <div className="flex items-center gap-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-              <span className="text-blue-800">Fazendo upload...</span>
+            <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                <span className="text-blue-800 font-medium">Processando planilha...</span>
+              </div>
+              <div className="space-y-1 text-sm text-blue-700">
+                <p>⏳ Este processo pode levar alguns minutos para planilhas grandes</p>
+                <p>📊 Etapas: Leitura → Validação → Mapeamento → Salvamento no banco</p>
+                <p className="text-xs text-blue-600 italic">💡 Não feche esta janela até a conclusão</p>
+              </div>
             </div>
           )}
 
@@ -101,16 +108,20 @@ export function UploadDialog({ children }: UploadDialogProps) {
             <div className="space-y-3">
               <div className="flex items-start gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                <div className="text-green-800">
+                <div className="text-green-800 w-full">
                   <div className="font-medium">Upload realizado com sucesso!</div>
-                  <div className="text-sm mt-1">
-                    📊 {uploadMutation.data?.total_registros} registros processados
+                  <div className="text-sm mt-2 space-y-1">
+                    <div>📁 Arquivo: {uploadMutation.data?.arquivo} ({uploadMutation.data?.tamanho_mb} MB)</div>
+                    <div>📖 Linhas lidas: {uploadMutation.data?.total_linhas_planilha}</div>
+                    <div>✅ Registros válidos: {uploadMutation.data?.registros_validos_mapeados}</div>
                     {uploadMutation.data?.registros_inseridos !== undefined && (
-                      <> | ✅ {uploadMutation.data.registros_inseridos} novos registros salvos</>
+                      <div className="font-medium text-green-700">
+                        💾 Novos no banco: {uploadMutation.data.registros_inseridos}
+                      </div>
                     )}
                   </div>
-                  <div className="text-xs text-green-600 mt-1">
-                    ⏳ Aguardando dashboard atualizar...
+                  <div className="text-xs text-green-600 mt-2 italic">
+                    ⏳ Dashboard será atualizado em alguns segundos...
                   </div>
                 </div>
               </div>

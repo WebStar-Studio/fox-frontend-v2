@@ -131,6 +131,7 @@ export interface DashboardMetrics {
     name: string;
     deliveries: number;
   }>;
+  status_distribution?: StatusDistribution[];
   metadata: {
     total_records_analyzed: number;
     total_records_database: number;
@@ -249,13 +250,17 @@ export interface UploadResponse {
   sucesso: boolean;
   mensagem: string;
   total_registros: number;
+  total_linhas_planilha?: number;  // Total de linhas lidas da planilha
+  registros_validos_mapeados?: number;  // Registros válidos após mapeamento
   arquivo: string;
+  tamanho_mb?: number;  // Tamanho do arquivo em MB
   colunas_processadas: number;
   colunas_obrigatorias_encontradas: number;
   colunas_opcionais_encontradas: number;
   salvo_no_banco: boolean;
-  registros_inseridos?: number;
-  duplicatas_evitadas?: number;
+  cache_atualizado?: boolean;
+  registros_inseridos?: number;  // Registros NOVOS inseridos no banco
+  duplicatas_evitadas?: number;  // Duplicatas encontradas (atualizadas)
   erro_banco?: string;
   erro?: string;
   detalhes?: string;

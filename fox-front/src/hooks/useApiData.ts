@@ -305,12 +305,16 @@ export function useDashboardData() {
   
   // OTIMIZAÇÃO CRÍTICA: Dashboard NÃO precisa de dados brutos!
   // Usa apenas endpoints de métricas agregadas (muito mais rápido)
-  const metricasBanco = useMetricasResumoBanco();
+  
+  // USAR useDashboardMetrics() ao invés de useMetricasResumoBanco() 
+  // para obter dados RAW com status_distribution e top_5_drivers
+  const dashboardMetricsRaw = useDashboardMetrics();
+  const metricasBancoLegacy = useMetricasResumoBanco(); // Para compatibilidade com código legado
   const entregadoresMetricas = useEntregadoresMetricas();
   const analiseTemporalMetricas = useAnaliseTemporalMetricas();
 
   // Usar APENAS dados do banco de dados (sem fallback para memória)
-  const metricas = metricasBanco.data;
+  const metricas = metricasBancoLegacy.data; // Formato legado para compatibilidade
   const topDrivers = entregadoresMetricas.data?.entregadores || [];
   
   // Lógica melhorada para loading e error states
@@ -318,31 +322,49 @@ export function useDashboardData() {
   const isDatabaseEmpty = statusData?.banco_conectado && statusData?.total_registros_banco === 0;
   
   // Se o banco está vazio, não considerar como loading ou error
-  // REMOVIDO dadosBanco.isLoading - não buscamos mais dados brutos!
-  const isLoading = isStatusLoading || (!isDatabaseEmpty && (metricasBanco.isLoading || entregadoresMetricas.isLoading || analiseTemporalMetricas.isLoading));
+  const isLoading = isStatusLoading || (!isDatabaseEmpty && (dashboardMetricsRaw.isLoading || metricasBancoLegacy.isLoading || entregadoresMetricas.isLoading || analiseTemporalMetricas.isLoading));
   
   // Só considerar erro se não for banco vazio e houver erro real de conexão
-  // REMOVIDO dadosBanco.error - não buscamos mais dados brutos!
   const hasConnectionError = !isDatabaseEmpty && (
     statusBanco.error || 
     (!statusData?.banco_conectado && !statusBanco.isLoading) ||
-    (statusData?.total_registros_banco > 0 && (metricasBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error))
+    (statusData?.total_registros_banco > 0 && (dashboardMetricsRaw.error || metricasBancoLegacy.error || entregadoresMetricas.error || analiseTemporalMetricas.error))
   );
 
+  // Extrair status_distribution e top_5_drivers do formato RAW (DashboardMetrics)
+  const dashboardMetrics = dashboardMetricsRaw.data; // Dados RAW com todos os campos
+  const statusDistribution = dashboardMetrics?.status_distribution || [];
+  
+  // Debug: Log do que estamos recebendo
+  if (dashboardMetrics && typeof window !== 'undefined') {
+    console.log('🔍 [DEBUG] dashboardMetrics RAW completo:', dashboardMetrics);
+    console.log('🔍 [DEBUG] status_distribution:', statusDistribution);
+    console.log('🔍 [DEBUG] top_5_drivers:', dashboardMetrics?.top_5_drivers);
+  }
+  
+  // Converter top_5_drivers do backend para DriverStats[] esperado pelo BarChartDrivers
+  const top5DriversBackend = dashboardMetrics?.top_5_drivers || [];
+  const driverStats = top5DriversBackend.map((driver: any) => ({
+    driver_name: driver.name,
+    total_deliveries: driver.deliveries,
+    total_revenue: 0, // Não temos esse dado no top_5_drivers
+  }));
+  
   return {
     metricas,
     dados: [], // Dashboard não precisa de dados brutos
-    driverStats: [], // Será calculado pelo backend se necessário
-    statusDistribution: [], // Será calculado pelo backend se necessário
+    driverStats, // Convertido do top_5_drivers do backend!
+    statusDistribution, // Agora vem do backend!
     topDrivers,
     statusBanco: statusData,
     isLoading,
-    error: hasConnectionError ? (statusBanco.error || metricasBanco.error || entregadoresMetricas.error || analiseTemporalMetricas.error) : null,
+    error: hasConnectionError ? (statusBanco.error || dashboardMetricsRaw.error || metricasBancoLegacy.error || entregadoresMetricas.error || analiseTemporalMetricas.error) : null,
     isDatabaseEmpty,
     refetch: () => {
       statusBanco.refetch();
       if (!isDatabaseEmpty) {
-        metricasBanco.refetch();
+        dashboardMetricsRaw.refetch();
+        metricasBancoLegacy.refetch();
         entregadoresMetricas.refetch();
         analiseTemporalMetricas.refetch();
       }
@@ -379,6 +401,7 @@ export function useRefreshData() {
 // Hook para obter métricas de empresas
 export function useEmpresasMetricas() {
   const statusBanco = useStatusBanco();
+  const temDados = (statusBanco.data as StatusBanco)?.total_registros_banco > 0;
   
   return useQuery({
     queryKey: [QUERY_KEYS.empresas],
@@ -392,14 +415,15 @@ export function useEmpresasMetricas() {
       return failureCount < 1;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
-    // Tentar buscar sempre, para mostrar loading adequado
-    enabled: true,
+    // Desabilitar se banco estiver vazio para evitar erros 404 desnecessários
+    enabled: !!temDados,
   });
 }
 
 // Hook para obter localizações de entrega
 export function useLocalizacoesEntrega() {
   const statusBanco = useStatusBanco();
+  const temDados = (statusBanco.data as StatusBanco)?.total_registros_banco > 0;
   
   return useQuery({
     queryKey: [QUERY_KEYS.localizacoesEntrega],
@@ -413,14 +437,15 @@ export function useLocalizacoesEntrega() {
       return failureCount < 1;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
-    // Tentar buscar sempre, para mostrar loading adequado
-    enabled: true,
+    // Desabilitar se banco estiver vazio para evitar erros 404 desnecessários
+    enabled: !!temDados,
   });
 }
 
 // Hook para obter métricas de entregadores
 export function useEntregadoresMetricas() {
   const statusBanco = useStatusBanco();
+  const temDados = (statusBanco.data as StatusBanco)?.total_registros_banco > 0;
   
   return useQuery({
     queryKey: [QUERY_KEYS.entregadores],
@@ -434,14 +459,15 @@ export function useEntregadoresMetricas() {
       return failureCount < 1;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
-    // Tentar buscar sempre, para mostrar loading adequado
-    enabled: true,
+    // Desabilitar se banco estiver vazio para evitar erros 404 desnecessários
+    enabled: !!temDados,
   });
 }
 
 // Hook para obter análise temporal
 export function useAnaliseTemporalMetricas() {
   const statusBanco = useStatusBanco();
+  const temDados = (statusBanco.data as StatusBanco)?.total_registros_banco > 0;
   
   return useQuery({
     queryKey: [QUERY_KEYS.analiseTemporal],
@@ -455,8 +481,8 @@ export function useAnaliseTemporalMetricas() {
       return failureCount < 1;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
-    // Tentar buscar sempre, para mostrar loading adequado
-    enabled: true,
+    // Desabilitar se banco estiver vazio para evitar erros 404 desnecessários
+    enabled: !!temDados,
   });
 }
 
