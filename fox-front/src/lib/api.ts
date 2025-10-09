@@ -1,6 +1,6 @@
 import { DeliveryRecord, MetricasResumo, DashboardMetrics, ApiResponse, DriverStats, StatusDistribution, EmpresasResponse, LocalizacoesEntregaResponse, EntregadoresResponse, AnaliseTemporalResponse, UploadResponse, EmpresaMetricasDetalhadas } from '@/types';
 
-const API_BASE_URL = 'http://178.156.150.166:5000';
+const API_BASE_URL = 'http://178.156.202.182:5000';
 
 /**
  * ESTRATÉGIA DE PAGINAÇÃO PARA EVITAR TIMEOUTS EM PRODUÇÃO:
